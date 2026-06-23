@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pandas
+openpyxl
+svglib
+reportlab
+python-multipart
+sqlalchemy
+qrcode
+jinja2
+resend
+Pillow

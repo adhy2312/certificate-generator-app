@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+</head>
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; padding: 40px 0;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 40px; text-align: center;">
+        <h1 style="color: #4f46e5; margin-bottom: 20px;">Congratulations, {{ name }}!</h1>
+        <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 30px;">
+            Thank you for participating in <strong>{{ event }}</strong> as a {{ tier }}.
+        </p>
+        <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 40px;">
+            Please find your official digital certificate attached to this email. You can verify the authenticity of your certificate by scanning the QR code on the document.
+        </p>
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; color: #9ca3af; font-size: 12px;">
+            <p>ISTE MBCET Student Chapter</p>
+            <p>Verification ID: {{ cert_id }}</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "iste-cert-hub",
+  "version": "1.0.0",
+  "description": "ISTE MBCET Certificate Operations Platform",
+  "scripts": {
+    "install:all": "cd backend && pip install -r requirements.txt && cd ../frontend && npm install",
+    "dev:backend": "cd backend && uvicorn main:app --reload",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently -c \"cyan.bold,magenta.bold\" -n \"FASTAPI,VITE\" \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
