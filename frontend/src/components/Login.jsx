@@ -7,11 +7,12 @@ export default function Login({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     setError('');
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/verify-password', {
+      const response = await fetch(`${API_BASE}/api/verify-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),

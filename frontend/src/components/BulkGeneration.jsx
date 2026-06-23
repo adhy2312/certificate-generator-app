@@ -38,7 +38,8 @@ export default function BulkGeneration() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/parse-preview', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE}/api/parse-preview`, {
         method: 'POST',
         body: formData,
       });
@@ -67,7 +68,8 @@ export default function BulkGeneration() {
     setStatus({ type: '', message: '' });
     
     try {
-      const response = await fetch('http://localhost:8000/api/jobs/bulk', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE}/api/jobs/bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,7 +94,8 @@ export default function BulkGeneration() {
     if (batchId) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`http://localhost:8000/api/jobs/${batchId}`);
+          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+          const res = await fetch(`${API_BASE}/api/jobs/${batchId}`);
           const data = await res.json();
           setJobStatus(data);
           
@@ -254,7 +257,10 @@ export default function BulkGeneration() {
                 {jobStatus?.completed && (
                   <div className="mt-6 flex justify-center animate-fadeIn">
                     <button 
-                      onClick={() => window.open(`http://localhost:8000/api/jobs/${batchId}/download`, '_blank')}
+                      onClick={() => {
+                        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                        window.open(`${API_BASE}/api/jobs/${batchId}/download`, '_blank');
+                      }}
                       className="clay-btn bg-green-500 text-white font-bold py-3 px-8 text-sm uppercase tracking-wider"
                     >
                       Download All as ZIP

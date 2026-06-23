@@ -8,10 +8,11 @@ export default function SingleGeneration() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     setStatus({ type: '', message: '' });
 
     try {
-      const response = await fetch('http://localhost:8000/api/process-single', {
+      const response = await fetch(`${API_BASE}/api/process-single`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
