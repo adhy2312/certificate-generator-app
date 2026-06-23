@@ -1,55 +1,51 @@
-import smtplib
+import resend
 import os
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
+import base64
 import config
 import logging
 from jinja2 import Environment, FileSystemLoader
 
 logger = logging.getLogger(__name__)
-
-# Setup Jinja2 environment
 env = Environment(loader=FileSystemLoader(config.TEMPLATES_DIR))
 
 def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "") -> bool:
     try:
-        msg = MIMEMultipart('alternative')
-        msg['From'] = f"ISTE No-Reply <{config.SENDER_EMAIL}>"
-        msg['To'] = to_email
-        msg['Subject'] = f"Your Certificate - {event}"
-        
-        # Any replies go to the organization email, not your personal backup email
-        msg.add_header('reply-to', 'istestudentchapter@mbcet.ac.in')
-
         # Load and render template
         template = env.get_template('email_template.html')
         html_body = template.render(name=name, event=event, tier=tier, cert_id=cert_id)
         
-        # Attach HTML body
-        msg.attach(MIMEText(html_body, 'html'))
-
-        # Attach PDF
-        if os.path.exists(pdf_path):
-            with open(pdf_path, 'rb') as attachment:
-                part = MIMEBase('application', 'octet-stream')
-                part.set_payload(attachment.read())
-            encoders.encode_base64(part)
-            filename = os.path.basename(pdf_path)
-            part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
-            msg.attach(part)
-        else:
+        # Read and encode PDF
+        if not os.path.exists(pdf_path):
             logger.error(f"PDF missing at {pdf_path}")
             return False
+            
+        with open(pdf_path, 'rb') as f:
+            pdf_data = f.read()
+        
+        encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
+        filename = os.path.basename(pdf_path)
 
-        with smtplib.SMTP_SSL(config.SMTP_SERVER, config.SMTP_PORT) as server:
-            server.login(config.SENDER_EMAIL, config.SENDER_PASS)
-            server.send_message(msg)
+        resend.api_key = config.SENDER_PASS # Use SENDER_PASS variable for the API key
 
-        logger.info(f"Email sent successfully to {to_email}")
+        # Send via Resend
+        params = {
+            "from": f"ISTE MBCET <{config.SENDER_EMAIL}>",
+            "to": [to_email],
+            "reply_to": "istestudentchapter@mbcet.ac.in",
+            "subject": f"Your Certificate - {event}",
+            "html": html_body,
+            "attachments": [
+                {
+                    "filename": filename,
+                    "content": encoded_pdf
+                }
+            ]
+        }
+
+        email = resend.Emails.send(params)
+        logger.info(f"Resend dispatched successfully to {to_email}: {email}")
         return True
 
     except Exception as e:
-        logger.error(f"SMTP error to {to_email}: {e}")
+        logger.error(f"Resend API error to {to_email}: {e}")
         return False
