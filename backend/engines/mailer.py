@@ -8,7 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 logger = logging.getLogger(__name__)
 env = Environment(loader=FileSystemLoader(config.TEMPLATES_DIR))
 
-def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "") -> bool:
+def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "") -> tuple[bool, str]:
     try:
         # Load and render template
         template = env.get_template('email_template.html')
@@ -17,7 +17,7 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
         # Read PDF
         if not os.path.exists(pdf_path):
             logger.error(f"PDF missing at {pdf_path}")
-            return False
+            return False, "PDF generation failed or file is missing."
             
         with open(pdf_path, 'rb') as f:
             pdf_data = f.read()
@@ -43,11 +43,11 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
             smtp.send_message(msg)
 
         logger.info(f"Email dispatched successfully to {to_email} via Gmail")
-        return True
+        return True, "Success"
 
     except smtplib.SMTPAuthenticationError as e:
-        logger.error(f"Gmail Auth Error (App Password invalid or blocked by Google): {e}")
-        return False
+        logger.error(f"Gmail Auth Error: {e}")
+        return False, f"Gmail Authentication Error: {e}"
     except Exception as e:
         logger.error(f"SMTP error to {to_email}: {type(e).__name__} - {e}")
-        return False
+        return False, f"SMTP Connection Error: {type(e).__name__} - {e}"

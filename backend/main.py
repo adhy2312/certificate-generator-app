@@ -84,11 +84,11 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
         db.commit()
         raise HTTPException(status_code=500, detail="PDF generation failed.")
         
-    success = send_certificate_email(req.email, req.name, pdf_path, req.event, req.tier, cert_log.cert_id)
+    success, error_msg = send_certificate_email(req.email, req.name, pdf_path, req.event, req.tier, cert_log.cert_id)
     if not success:
         cert_log.status = "FAILED"
         db.commit()
-        raise HTTPException(status_code=500, detail="Email dispatch failed.")
+        raise HTTPException(status_code=500, detail=error_msg)
         
     cert_log.status = "SENT"
     db.commit()
