@@ -9,4 +9,6 @@ sqlalchemy
 qrcode
 jinja2
 resend
+psycopg2-binary
+gunicorn
 Pillow
