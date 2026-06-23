@@ -35,14 +35,19 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
         # Attach PDF
         msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=filename)
 
-        # Send via Gmail SMTP
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        # Send via Gmail SMTP (Port 587 STARTTLS)
+        with smtplib.SMTP('smtp.gmail.com', 587, timeout=10) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
             smtp.login(config.SENDER_EMAIL, config.SENDER_PASS)
             smtp.send_message(msg)
 
         logger.info(f"Email dispatched successfully to {to_email} via Gmail")
         return True
 
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"Gmail Auth Error (App Password invalid or blocked by Google): {e}")
+        return False
     except Exception as e:
-        logger.error(f"SMTP error to {to_email}: {e}")
+        logger.error(f"SMTP error to {to_email}: {type(e).__name__} - {e}")
         return False
