@@ -15,7 +15,7 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
     """
     try:
         # Load the base PNG template
-        template_path = os.path.join(os.path.dirname(__file__), "..", "..", "cert template.png")
+        template_path = os.path.join(os.path.dirname(__file__), "..", "..", "CERT TEMPLATE.png")
         template_path = os.path.abspath(template_path)
         
         if not os.path.exists(template_path):
