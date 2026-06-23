@@ -31,17 +31,14 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             base_font_size = int(height * 0.045) # 4.5% of height
             
             try:
-                # Try to load Georgia or Times New Roman for a highly professional certificate aesthetic
-                font_large = ImageFont.truetype("C:\\Windows\\Fonts\\georgiab.ttf", int(base_font_size * 1.6))
-                font_medium = ImageFont.truetype("C:\\Windows\\Fonts\\georgia.ttf", base_font_size)
+                # Load bundled Georgia fonts from the backend/fonts directory
+                font_dir = os.path.join(os.path.dirname(__file__), "..", "fonts")
+                font_large = ImageFont.truetype(os.path.join(font_dir, "georgiab.ttf"), int(base_font_size * 1.6))
+                font_medium = ImageFont.truetype(os.path.join(font_dir, "georgia.ttf"), base_font_size)
             except IOError:
-                try:
-                    font_large = ImageFont.truetype("C:\\Windows\\Fonts\\timesbd.ttf", int(base_font_size * 1.6))
-                    font_medium = ImageFont.truetype("C:\\Windows\\Fonts\\times.ttf", base_font_size)
-                except IOError:
-                    logger.warning("Could not load professional fonts. Using default.")
-                    font_large = ImageFont.load_default()
-                    font_medium = ImageFont.load_default()
+                logger.warning("Could not load professional fonts. Using default.")
+                font_large = ImageFont.load_default()
+                font_medium = ImageFont.load_default()
 
             # Coordinates
             name_x = width * config.COORD_NAME_X
