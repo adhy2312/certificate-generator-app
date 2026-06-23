@@ -2,91 +2,81 @@
 
 @layer utilities {
   .clay-surface {
-    background-color: #e0e5ec;
+    background-color: #f4f0ea;
   }
   
   .clay-card {
-    background: #e0e5ec;
-    border-radius: 32px;
-    box-shadow: 
-      12px 12px 24px rgb(163,177,198,0.6), 
-      -12px -12px 24px rgba(255,255,255, 0.7),
-      inset 4px 4px 10px rgba(255, 255, 255, 0.6),
-      inset -4px -4px 10px rgba(163,177,198, 0.2);
+    background: #ffffff;
+    border: 3px solid #111827;
+    border-radius: 0px;
+    box-shadow: 8px 8px 0px #111827;
   }
 
   .clay-panel {
-    background: #e0e5ec;
-    border-radius: 20px;
-    box-shadow: 
-      6px 6px 12px rgb(163,177,198,0.5), 
-      -6px -6px 12px rgba(255,255,255, 0.6);
+    background: #fdfbf7;
+    border: 3px solid #111827;
+    border-radius: 0px;
+    box-shadow: 6px 6px 0px #111827;
   }
 
   .clay-btn-primary {
     background: #4f46e5;
-    color: white;
-    border-radius: 16px;
-    box-shadow: 
-      6px 6px 12px rgb(163,177,198,0.6), 
-      -6px -6px 12px rgba(255,255,255, 0.5),
-      inset 2px 2px 5px rgba(255, 255, 255, 0.3),
-      inset -2px -2px 5px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #ffffff;
+    border: 3px solid #111827;
+    border-radius: 0px;
+    box-shadow: 4px 4px 0px #111827;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.1s ease-in-out;
   }
   
   .clay-btn-primary:active {
-    box-shadow: 
-      inset 4px 4px 8px rgba(0, 0, 0, 0.3), 
-      inset -4px -4px 8px rgba(255, 255, 255, 0.2);
-    transform: translateY(2px);
+    box-shadow: 0px 0px 0px #111827;
+    transform: translate(4px, 4px);
   }
 
   .clay-btn {
-    background: #e0e5ec;
-    color: #6b7280;
-    border-radius: 16px;
-    box-shadow: 
-      5px 5px 10px rgb(163,177,198,0.6), 
-      -5px -5px 10px rgba(255,255,255, 0.6),
-      inset 2px 2px 5px rgba(255, 255, 255, 0.8),
-      inset -2px -2px 5px rgba(163,177,198, 0.2);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #ffffff;
+    color: #111827;
+    border: 3px solid #111827;
+    border-radius: 0px;
+    box-shadow: 4px 4px 0px #111827;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.1s ease-in-out;
   }
   
   .clay-btn:hover {
-    color: #4f46e5;
+    background: #f3f4f6;
   }
 
   .clay-btn:active, .clay-btn.active {
-    box-shadow: 
-      inset 5px 5px 10px rgb(163,177,198,0.6), 
-      inset -5px -5px 10px rgba(255, 255, 255, 0.8);
-    color: #4f46e5;
-    transform: translateY(1px);
+    background: #111827;
+    color: #ffffff;
+    box-shadow: 0px 0px 0px #111827;
+    transform: translate(4px, 4px);
   }
 
   .clay-input {
-    background: #e0e5ec;
-    border-radius: 16px;
-    box-shadow: 
-      inset 5px 5px 10px rgb(163,177,198,0.5), 
-      inset -5px -5px 10px rgba(255, 255, 255, 0.7);
-    border: none;
+    background: #ffffff;
+    border: 3px solid #111827;
+    border-radius: 0px;
+    box-shadow: 4px 4px 0px #111827;
     outline: none;
-    transition: all 0.3s ease;
+    transition: all 0.1s ease-in-out;
   }
   
   .clay-input:focus {
-    box-shadow: 
-      inset 7px 7px 14px rgb(163,177,198,0.6), 
-      inset -7px -7px 14px rgba(255, 255, 255, 0.9);
+    box-shadow: 6px 6px 0px #4f46e5;
+    transform: translate(-2px, -2px);
   }
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #e0e5ec;
-  color: #374151;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  background-color: #f4f0ea;
+  color: #111827;
 }
