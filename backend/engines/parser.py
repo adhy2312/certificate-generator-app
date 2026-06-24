@@ -107,6 +107,9 @@ def process_source(file_data=None, url=None) -> list:
         # 3. Smart Deduplication (Prevent spamming if user submitted form multiple times)
         df = df.drop_duplicates(subset=['Email'], keep='first')
         
+        # 4. Fill NaN values (FastAPI's JSONResponse crashes on NaN)
+        df = df.fillna("")
+        
         return df.to_dict(orient='records')
     except Exception as e:
         raise Exception(f"Data ingestion error: {e}")
