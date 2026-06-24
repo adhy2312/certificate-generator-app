@@ -83,6 +83,22 @@ def process_source(file_data=None, url=None) -> list:
         if 'Tier' not in df.columns:
             df['Tier'] = 'Participant'
             
+        # --- INTELLIGENT PROCESSING LAYER ---
+        
+        # 1. Name Auto-Formatting (Strip outer whitespace and Title Case)
+        df['Name'] = df['Name'].astype(str).str.strip().str.title()
+        
+        # 2. Invalid Email Bouncing (Filter out badly formed emails)
+        email_pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+        df['Email'] = df['Email'].astype(str).str.strip()
+        df = df[df['Email'].str.match(email_pattern, na=False)]
+        
+        if df.empty:
+            raise ValueError("No valid records found. All rows contained invalid or missing email addresses.")
+            
+        # 3. Smart Deduplication (Prevent spamming if user submitted form multiple times)
+        df = df.drop_duplicates(subset=['Email'], keep='first')
+        
         return df.to_dict(orient='records')
     except Exception as e:
         raise Exception(f"Data ingestion error: {e}")
