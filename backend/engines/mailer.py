@@ -38,12 +38,23 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
                 "filename": filename
             }
             resp = requests.post(config.GAS_MAILER_URL, json=payload, timeout=20)
-            if resp.status_code == 200 and resp.json().get('success'):
-                logger.info(f"Email dispatched successfully to {to_email} via GAS Proxy")
-                return True, "Success"
-            else:
-                logger.error(f"GAS Proxy Error: {resp.text}")
-                return False, f"GAS Proxy Error: {resp.text}"
+            
+            try:
+                resp_json = resp.json()
+                if resp.status_code == 200 and resp_json.get('success'):
+                    logger.info(f"Email dispatched successfully to {to_email} via GAS Proxy")
+                    return True, "Success"
+                else:
+                    logger.error(f"GAS Proxy Error: {resp.text}")
+                    return False, f"GAS Proxy Error: {resp_json.get('error', resp.text)}"
+            except ValueError:
+                # If the response is not JSON, it's usually an HTML "Access Denied" or login page from Google
+                if "Access Denied" in resp.text or "accounts.google.com" in resp.text:
+                    err_msg = "Google Apps Script Error: Access Denied. You must deploy the Apps Script Web App with 'Who has access: Anyone'."
+                else:
+                    err_msg = f"Google Apps Script Error: Received unexpected HTML response (Status {resp.status_code}). Ensure the Web App URL is correct."
+                logger.error(err_msg)
+                return False, err_msg
 
         # Fallback to local Gmail SMTP (Port 587 STARTTLS)
         msg = EmailMessage()
