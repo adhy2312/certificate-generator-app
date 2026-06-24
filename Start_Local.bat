@@ -3,10 +3,18 @@ echo ===================================================
 echo   ISTE CERTIFICATE HUB - LOCAL DISPATCH ENGINE
 echo ===================================================
 echo.
-echo Starting Backend Server on Port 8000...
+echo [1] Checking Python Environment...
+cd backend
+if not exist ".venv\" (
+    echo Creating virtual environment...
+    python -m venv .venv
+)
+cd ..
+
+echo [2] Starting Backend Server on Port 8000...
 start cmd /k "cd backend && call .venv\Scripts\activate && pip install -r requirements.txt && uvicorn main:app --reload"
 
-echo Starting Frontend Server on Port 5173...
+echo [3] Starting Frontend Server on Port 5173...
 start cmd /k "cd frontend && npm install && npm run dev"
 
 echo.

@@ -6,6 +6,7 @@ export default function BulkGeneration() {
   const [file, setFile] = useState(null);
   const [globalEvent, setGlobalEvent] = useState('');
   const [globalDate, setGlobalDate] = useState('');
+  const [sendEmail, setSendEmail] = useState(true);
   
   const [records, setRecords] = useState([]);
   const [preview, setPreview] = useState([]);
@@ -75,7 +76,8 @@ export default function BulkGeneration() {
         body: JSON.stringify({
           records: records.map(r => ({ Name: r.Name, Email: r.Email, Tier: r.Tier })),
           event: globalEvent,
-          date: globalDate
+          date: globalDate,
+          send_email: sendEmail
         }),
       });
       const data = await response.json();
@@ -231,12 +233,20 @@ export default function BulkGeneration() {
             </div>
 
             {!batchId ? (
-              <button
-                onClick={handleDispatch}
-                className="clay-btn-primary px-10 py-4 font-bold text-sm uppercase tracking-widest"
-              >
-                Initiate Background Dispatch
-              </button>
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <button
+                  onClick={() => { setSendEmail(true); handleDispatch(); }}
+                  className="clay-btn-primary px-8 py-4 font-bold text-sm uppercase tracking-widest"
+                >
+                  Generate & Email All
+                </button>
+                <button
+                  onClick={() => { setSendEmail(false); handleDispatch(); }}
+                  className="clay-btn px-8 py-4 font-bold text-sm uppercase tracking-widest"
+                >
+                  Download ZIP Only
+                </button>
+              </div>
             ) : (
               <div className="space-y-4 max-w-md mx-auto">
                 <div className="flex justify-between items-center px-2">

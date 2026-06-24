@@ -2,7 +2,7 @@ import logging
 import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
@@ -46,6 +46,7 @@ class BulkProcessRequest(BaseModel):
     records: List[dict]
     event: str
     date: str = None
+    send_email: bool = True
 
 @app.post("/api/verify-password")
 async def verify_password(req: PasswordRequest):
@@ -119,7 +120,7 @@ async def process_bulk(req: BulkProcessRequest, background_tasks: BackgroundTask
     db.commit()
     
     # Spawn background task
-    background_tasks.add_task(process_batch, batch_id, db)
+    background_tasks.add_task(process_batch, batch_id, db, req.send_email)
     
     return {"success": True, "batch_id": batch_id, "total": len(req.records)}
 
