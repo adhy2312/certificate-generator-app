@@ -12,3 +12,4 @@ resend
 psycopg2-binary
 gunicorn
 Pillow
+requests
