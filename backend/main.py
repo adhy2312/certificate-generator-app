@@ -231,21 +231,40 @@ async def verify_password(req: PasswordRequest, request: Request):
 
 
 @app.post("/api/parse-preview")
-async def parse_preview(url: str = Form(None), file: UploadFile = File(None)):
-    # File size guard: 5 MB max
-    MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+async def parse_preview(request: Request):
+    """
+    Accepts either:
+      - multipart/form-data with a 'file' field (CSV/XLSX upload)
+      - multipart/form-data with a 'url' field (Google Sheets link)
+    Reads the body manually to avoid FastAPI's UploadFile multipart
+    parsing bug that crashes before the CORS middleware runs.
+    """
+    MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
     try:
-        if file:
-            contents = await file.read(MAX_UPLOAD_BYTES + 1)
-            if len(contents) > MAX_UPLOAD_BYTES:
-                raise HTTPException(status_code=413, detail="File too large. Maximum size is 5 MB.")
-            records = process_source(file_data=contents)
-        elif url:
-            records = process_source(url=url)
-        else:
-            raise HTTPException(status_code=400, detail="Provide URL or file")
+        content_type = request.headers.get("content-type", "")
+
+        # --- Raw body size guard ---
+        body = await request.body()
+        if len(body) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 5 MB.")
+
+        # --- Route by content type ---
+        if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+            form = await request.form()
+
+            url_val = form.get("url")
+            file_val = form.get("file")
+
+            if file_val and hasattr(file_val, "read"):
+                contents = await file_val.read()
+                records = process_source(file_data=contents)
+            elif url_val:
+                records = process_source(url=str(url_val))
+            else:
+                raise HTTPException(status_code=400, detail="Provide a Google Sheets URL or upload a file.")
 
         return {"records": records[:3], "full_records": records}
+
     except HTTPException:
         raise
     except Exception as e:
