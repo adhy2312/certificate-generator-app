@@ -1,17 +1,29 @@
 import re
 import pandas as pd
 from io import BytesIO
+from urllib.parse import urlparse
+
+# Allowlist: only fetch from Google Sheets to prevent SSRF attacks
+_ALLOWED_FETCH_DOMAIN = "docs.google.com"
 
 def parse_google_sheet_url(url: str) -> str:
     """Extracts Spreadsheet ID and GID, returns a forced CSV export URL."""
+    # SSRF guard: ensure the URL is actually a Google Sheets URL before parsing
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.netloc != _ALLOWED_FETCH_DOMAIN:
+            raise ValueError("Only Google Sheets URLs are accepted.")
+    except Exception:
+        return ""
+
     match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
     if not match:
         return ""
     spreadsheet_id = match.group(1)
-    
+
     gid_match = re.search(r'[#&]gid=([0-9]+)', url)
     gid = gid_match.group(1) if gid_match else "0"
-    
+
     return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
 
 def process_source(file_data=None, url=None) -> list:

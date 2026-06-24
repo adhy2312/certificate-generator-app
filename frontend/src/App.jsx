@@ -4,8 +4,21 @@ import SingleGeneration from './components/SingleGeneration';
 import BulkGeneration from './components/BulkGeneration';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Persist auth across page refreshes using sessionStorage (cleared when browser tab closes)
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => sessionStorage.getItem('iste_auth') === 'true'
+  );
   const [activeTab, setActiveTab] = useState('single');
+
+  const handleLogin = () => {
+    sessionStorage.setItem('iste_auth', 'true');
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('iste_auth');
+    setIsAuthenticated(false);
+  };
 
   // Handle QR Code Verification Route natively by redirecting to backend HTML portal
   if (window.location.pathname.startsWith('/verify/')) {
@@ -19,7 +32,7 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return <Login onLogin={() => setIsAuthenticated(true)} />;
+    return <Login onLogin={handleLogin} />;
   }
 
   return (
@@ -30,7 +43,7 @@ function App() {
             ISTE_CERT<span className="text-indigo-600">.HUB</span>
           </h1>
           <button 
-            onClick={() => setIsAuthenticated(false)}
+            onClick={handleLogout}
             className="clay-btn px-6 py-2 text-sm font-bold uppercase tracking-wider"
           >
             Sign Out
