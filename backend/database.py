@@ -1,9 +1,9 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./certops.db")
+# Use environment variable for the database URL, fallback to local sqlite for dev if missing
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
 # Render/Supabase sometimes provide postgres:// but SQLAlchemy requires postgresql://
 if DATABASE_URL.startswith("postgres://"):

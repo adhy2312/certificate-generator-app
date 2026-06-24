@@ -1,7 +1,7 @@
 import os
 
 # Centralized Configuration & State
-GATEKEEPER_PASSWORD = "ISTE@2069"
+GATEKEEPER_PASSWORD = os.getenv("GATEKEEPER_PASSWORD", "ISTE@2069")
 
 # Directory Constants
 TEMPLATES_DIR = "templates"
@@ -10,8 +10,8 @@ OUTPUT_DIR = "output"
 # Email Dispatch Configuration (SMTP)
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
-SENDER_EMAIL = os.getenv("SENDER_EMAIL", "adhithyamohansbackup@gmail.com")
-SENDER_PASS = os.getenv("SENDER_PASS", "mpnyzpsoxfsejqoe")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
+SENDER_PASS = os.getenv("SENDER_PASS", "")
 GAS_MAILER_URL = os.getenv("GAS_MAILER_URL", "")
 
 # Verification URL
