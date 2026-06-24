@@ -10,11 +10,11 @@ from jinja2 import Environment, FileSystemLoader
 logger = logging.getLogger(__name__)
 env = Environment(loader=FileSystemLoader(config.TEMPLATES_DIR))
 
-def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "") -> tuple[bool, str]:
+def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "", cert_type: str = "Certificate") -> tuple[bool, str]:
     try:
         # Load and render template
         template = env.get_template('email_template.html')
-        html_body = template.render(name=name, event=event, tier=tier, cert_id=cert_id)
+        html_body = template.render(name=name, event=event, tier=tier, cert_id=cert_id, cert_type=cert_type)
         
         # Read PDF
         if not os.path.exists(pdf_path):

@@ -6,6 +6,7 @@ export default function BulkGeneration() {
   const [file, setFile] = useState(null);
   const [globalEvent, setGlobalEvent] = useState('');
   const [globalDate, setGlobalDate] = useState('');
+  const [globalType, setGlobalType] = useState('Certificate of Participation');
   const [sendEmail, setSendEmail] = useState(true);
   
   const [records, setRecords] = useState([]);
@@ -74,9 +75,10 @@ export default function BulkGeneration() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          records: records.map(r => ({ Name: r.Name, Email: r.Email, Tier: r.Tier })),
+          records: records.map(r => ({ Name: r.Name, Email: r.Email, Tier: r.Tier, Type: r.Type })),
           event: globalEvent,
           date: globalDate,
+          cert_type: globalType,
           send_email: sendEmail
         }),
       });
@@ -230,6 +232,17 @@ export default function BulkGeneration() {
                   disabled={batchId !== null}
                 />
               </div>
+            </div>
+
+            <div className="max-w-md mx-auto mb-8">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-2 text-center">Global Cert Type</label>
+              <input
+                type="text"
+                className="clay-input w-full px-5 py-3 text-gray-800 font-medium text-center"
+                value={globalType}
+                onChange={(e) => setGlobalType(e.target.value)}
+                disabled={batchId !== null}
+              />
             </div>
 
             {!batchId ? (

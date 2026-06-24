@@ -67,10 +67,12 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
                     from qrcode.image.styledpil import StyledPilImage
                     from qrcode.image.styles.moduledrawers.pil import RoundedModuleDrawer
                     from qrcode.image.styles.colormasks import SolidFillColorMask
+                    logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.png"))
                     qr_img = qr.make_image(
                         image_factory=StyledPilImage,
                         module_drawer=RoundedModuleDrawer(),
-                        color_mask=SolidFillColorMask(front_color=(12, 35, 64)) # Deep elegant indigo
+                        color_mask=SolidFillColorMask(front_color=(12, 35, 64)), # Deep elegant indigo
+                        embeded_image_path=logo_path if os.path.exists(logo_path) else None
                     )
                 except ImportError:
                     qr_img = qr.make_image(fill_color="#0c2340", back_color="white")

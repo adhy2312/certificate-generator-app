@@ -6,9 +6,12 @@
 <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; padding: 40px 0;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 40px; text-align: center;">
         <h1 style="color: #4f46e5; margin-bottom: 20px;">Congratulations, {{ name }}!</h1>
-        <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 30px;">
+        <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
             Thank you for participating in <strong>{{ event }}</strong> as a {{ tier }}.
         </p>
+        <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 30px; text-align: left; border-left: 4px solid #4f46e5;">
+            <p style="margin: 0 0 10px 0; color: #374151;"><strong>Certificate Type:</strong> {{ cert_type }}</p>
+        </div>
         <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 40px;">
             Please find your official digital certificate attached to this email. You can verify the authenticity of your certificate by scanning the QR code on the document.
         </p>

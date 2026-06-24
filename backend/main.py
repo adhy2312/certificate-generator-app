@@ -15,10 +15,36 @@ from engines.worker import process_batch
 from database import engine, Base, get_db
 from models import CertificateLog
 
-# Initialize Database tables
-Base.metadata.create_all(bind=engine)
+import asyncio
+import time
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="ISTE CertHub API")
+async def cleanup_pdfs_loop():
+    while True:
+        try:
+            now = time.time()
+            for filename in os.listdir(config.OUTPUT_DIR):
+                if filename.endswith(".pdf"):
+                    file_path = os.path.join(config.OUTPUT_DIR, filename)
+                    # Delete files older than 2 hours to prevent disk exhaustion
+                    if os.stat(file_path).st_mtime < now - 7200:
+                        os.remove(file_path)
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+        # Wait 1 hour
+        await asyncio.sleep(3600)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize Database tables
+    Base.metadata.create_all(bind=engine)
+    
+    # Start auto-cleanup background task
+    task = asyncio.create_task(cleanup_pdfs_loop())
+    yield
+    task.cancel()
+
+app = FastAPI(title="ISTE CertHub API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,12 +66,14 @@ class SingleProcessRequest(BaseModel):
     event: str
     tier: str
     date: str = ""
+    cert_type: str = "Certificate of Participation"
     send_email: bool = True
 
 class BulkProcessRequest(BaseModel):
     records: List[dict]
     event: str
     date: str = None
+    cert_type: str = "Certificate of Participation"
     send_email: bool = True
 
 @app.post("/api/verify-password")
@@ -74,7 +102,8 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
     logger.info(f"Processing single generation for {req.name}")
     
     cert_log = CertificateLog(
-        name=req.name, email=req.email, event=req.event, tier=req.tier, date=req.date
+        name=req.name, email=req.email, event=req.event, tier=req.tier, date=req.date,
+        cert_type=req.cert_type
     )
     db.add(cert_log)
     db.commit()
@@ -92,7 +121,15 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
         from fastapi.responses import FileResponse
         return FileResponse(pdf_path, media_type="application/pdf", filename=os.path.basename(pdf_path))
         
-    success, error_msg = send_certificate_email(req.email, req.name, pdf_path, req.event, req.tier, cert_log.cert_id)
+    success, error_msg = send_certificate_email(
+        to_email=req.email, 
+        name=req.name, 
+        pdf_path=pdf_path, 
+        event=req.event, 
+        tier=req.tier, 
+        cert_id=cert_log.cert_id,
+        cert_type=req.cert_type
+    )
     if not success:
         cert_log.status = "FAILED"
         db.commit()
@@ -113,14 +150,15 @@ async def process_bulk(req: BulkProcessRequest, background_tasks: BackgroundTask
             email=record.get("Email"),
             event=req.event,
             tier=record.get("Tier"),
-            date=req.date
+            date=req.date,
+            cert_type=record.get("Type", req.cert_type)
         )
         db.add(cert_log)
     
     db.commit()
     
-    # Spawn background task
-    background_tasks.add_task(process_batch, batch_id, db, req.send_email)
+    # Spawn background task without the HTTP session (worker creates its own session)
+    background_tasks.add_task(process_batch, batch_id, req.send_email)
     
     return {"success": True, "batch_id": batch_id, "total": len(req.records)}
 
@@ -237,7 +275,7 @@ async def verify_certificate(cert_id: str, db: Session = Depends(get_db)):
     <body>
         <div class="container">
             <div class="badge">✔ Authentic</div>
-            <h1>Certificate Verified</h1>
+            <h1>{cert.cert_type}</h1>
             <p class="subtitle">This official document has been cryptographically verified in the ISTE ledger.</p>
             
             <div class="detail-group">
@@ -246,7 +284,7 @@ async def verify_certificate(cert_id: str, db: Session = Depends(get_db)):
             </div>
             
             <div class="detail-group">
-                <div class="label">Event Name</div>
+                <div class="label">Event / Achievement</div>
                 <div class="value">{cert.event}</div>
             </div>
             
@@ -274,17 +312,22 @@ async def verify_certificate(cert_id: str, db: Session = Depends(get_db)):
     """
 
 import zipfile
-import io
+import tempfile
 import os
+from fastapi.responses import FileResponse
 
 @app.get("/api/jobs/{batch_id}/download")
-async def download_batch_zip(batch_id: str, db: Session = Depends(get_db)):
+async def download_batch_zip(batch_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     records = db.query(CertificateLog).filter(CertificateLog.batch_id == batch_id).all()
     if not records:
         raise HTTPException(status_code=404, detail="No certificates found for this batch.")
         
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+    # Security/Memory fix: Write to physical temp file to prevent RAM OOM crashes on large batches
+    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    temp_zip_path = temp_zip.name
+    temp_zip.close()
+    
+    with zipfile.ZipFile(temp_zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for record in records:
             import re
             safe_name = re.sub(r'[\\/*?:"<>|]', "", record.name).replace(" ", "_")
@@ -294,12 +337,11 @@ async def download_batch_zip(batch_id: str, db: Session = Depends(get_db)):
             if os.path.exists(pdf_path):
                 zip_file.write(pdf_path, arcname=filename)
                 
-    zip_buffer.seek(0)
+    # Auto-cleanup the temp zip file after download finishes
+    background_tasks.add_task(os.remove, temp_zip_path)
     
-    return StreamingResponse(
-        zip_buffer,
+    return FileResponse(
+        path=temp_zip_path,
         media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename=certificates_batch_{batch_id}.zip"
-        }
+        filename=f"certificates_batch_{batch_id}.zip"
     )

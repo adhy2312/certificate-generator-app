@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 export default function SingleGeneration() {
-  const [formData, setFormData] = useState({ name: '', email: '', event: '', tier: 'Participant', date: '', send_email: true });
+  const [formData, setFormData] = useState({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'Certificate of Participation', send_email: true });
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -22,7 +22,7 @@ export default function SingleGeneration() {
         const data = await response.json();
         if (response.ok && data.success) {
           setStatus({ type: 'success', message: `Certificate dispatched to ${formData.email}!` });
-          setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', send_email: true });
+          setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'Certificate of Participation', send_email: true });
         } else {
           setStatus({ type: 'error', message: data.detail || 'Failed to process request.' });
         }
@@ -127,6 +127,17 @@ export default function SingleGeneration() {
             <option>Winner</option>
             <option>Resource Person</option>
           </select>
+        </div>
+
+        <div className="max-w-md mx-auto">
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-2 text-center">Certificate Type</label>
+          <input
+            type="text"
+            required
+            className="clay-input w-full px-5 py-3 text-gray-800 font-medium text-center"
+            value={formData.cert_type}
+            onChange={(e) => setFormData({ ...formData, cert_type: e.target.value })}
+          />
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">

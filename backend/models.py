@@ -11,6 +11,7 @@ class CertificateLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     cert_id = Column(String, unique=True, index=True, default=generate_uuid)
+    cert_type = Column(String, default="Certificate of Participation")
     batch_id = Column(String, index=True, nullable=True)
     name = Column(String, index=True)
     email = Column(String)
