@@ -10,7 +10,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, validator, EmailStr
 from typing import List, Optional
@@ -88,19 +89,33 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 
-# ---------------------------------------------------------------------------
-# Allowed origins - tighten CORS to only known frontends
-# ---------------------------------------------------------------------------
-ALLOWED_ORIGINS = [
-    "https://certificate-generator-app-dlh6.onrender.com",
-    "https://certificate-generator-app-iste.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:4173",
-    "http://127.0.0.1:5173",
-]
-
 app = FastAPI(title="ISTE CertHub API", lifespan=lifespan)
 
+# ---------------------------------------------------------------------------
+# CRITICAL: Raw low-level CORS middleware.
+# FastAPI's built-in CORSMiddleware has a known bug: if an exception is raised
+# DURING request body parsing (e.g. a malformed multipart upload), the error
+# response is emitted BEFORE the middleware chain runs, so no CORS header is
+# attached and the browser sees it as a CORS failure.
+# This raw middleware runs at the very bottom of the stack and forcefully
+# injects the header onto every response, including crash responses.
+# ---------------------------------------------------------------------------
+@app.middleware("http")
+async def force_cors(request: Request, call_next):
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        # Unhandled exception — return a clean JSON 500 with CORS header
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+        )
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+# Also keep the built-in middleware for preflight OPTIONS requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -113,8 +128,26 @@ logging.basicConfig(level=logging.INFO)
 
 
 # ---------------------------------------------------------------------------
-# Request models with strict length/type validation
+# Global exception handlers — always include CORS so the browser sees the
+# actual error instead of a phantom "No CORS header" failure.
 # ---------------------------------------------------------------------------
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
+
 
 MAX_STR = 200  # max length for text fields
 
