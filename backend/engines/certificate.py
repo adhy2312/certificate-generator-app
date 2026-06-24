@@ -60,7 +60,7 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             
             # Generate and Stamp QR Code
             if cert_id:
-                qr = qrcode.QRCode(box_size=20, border=2)
+                qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=20, border=2)
                 qr.add_data(f"{config.PUBLIC_URL}/verify/{cert_id}")
                 qr.make(fit=True)
                 try:

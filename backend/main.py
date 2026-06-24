@@ -39,6 +39,15 @@ async def lifespan(app: FastAPI):
     # Initialize Database tables
     Base.metadata.create_all(bind=engine)
     
+    # Safely migrate existing databases to include the new cert_type column
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE certificate_logs ADD COLUMN cert_type VARCHAR DEFAULT 'Certificate of Participation'"))
+    except Exception:
+        # Column likely already exists
+        pass
+    
     # Start auto-cleanup background task
     task = asyncio.create_task(cleanup_pdfs_loop())
     yield
