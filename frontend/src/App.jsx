@@ -32,11 +32,18 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
+    return (
+      <div className="relative">
+        <Login onLogin={handleLogin} />
+        <footer className="absolute bottom-4 w-full text-center pointer-events-none">
+          <p className="text-xs text-gray-500 font-medium tracking-wide opacity-80">© {new Date().getFullYear()} Developed by Adhy</p>
+        </footer>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen clay-surface text-gray-700 font-sans selection:bg-indigo-200">
+    <div className="min-h-screen flex flex-col clay-surface text-gray-700 font-sans selection:bg-indigo-200">
       <header className="pt-8 pb-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <h1 className="text-4xl font-extrabold text-gray-800 tracking-tight drop-shadow-sm">
@@ -51,7 +58,7 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8 flex-grow w-full">
         <div className="flex justify-center mb-10">
           <nav className="flex space-x-4 p-3 clay-panel rounded-2xl">
             <button
@@ -77,6 +84,10 @@ function App() {
           {activeTab === 'single' ? <SingleGeneration /> : <BulkGeneration />}
         </div>
       </main>
+
+      <footer className="w-full text-center py-6 mt-auto">
+        <p className="text-xs text-gray-500 font-medium tracking-wide opacity-80">© {new Date().getFullYear()} Developed by Adhy</p>
+      </footer>
     </div>
   );
 }
