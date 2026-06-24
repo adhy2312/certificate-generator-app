@@ -61,13 +61,14 @@ export default function BulkGeneration() {
     }
   };
 
-  const handleDispatch = async () => {
+  const handleDispatch = async (sendEmailOverride) => {
     if (!globalEvent) {
       setStatus({ type: 'error', message: 'Please provide a Global Event Name.' });
       return;
     }
     
     setStatus({ type: '', message: '' });
+    setSendEmail(sendEmailOverride);
     
     try {
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -79,7 +80,7 @@ export default function BulkGeneration() {
           event: globalEvent,
           date: globalDate,
           cert_type: globalType,
-          send_email: sendEmail
+          send_email: sendEmailOverride
         }),
       });
       const data = await response.json();
@@ -248,13 +249,13 @@ export default function BulkGeneration() {
             {!batchId ? (
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <button
-                  onClick={() => { setSendEmail(true); handleDispatch(); }}
+                  onClick={() => handleDispatch(true)}
                   className="clay-btn-primary px-8 py-4 font-bold text-sm uppercase tracking-widest"
                 >
                   Generate & Email All
                 </button>
                 <button
-                  onClick={() => { setSendEmail(false); handleDispatch(); }}
+                  onClick={() => handleDispatch(false)}
                   className="clay-btn px-8 py-4 font-bold text-sm uppercase tracking-widest"
                 >
                   Download ZIP Only

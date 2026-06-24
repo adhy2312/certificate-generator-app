@@ -29,7 +29,7 @@ def process_batch(batch_id: str, send_email: bool = True):
                 
                 if pdf_path:
                     if send_email:
-                        success = send_certificate_email(
+                        success, err_msg = send_certificate_email(
                             to_email=record.email,
                             name=record.name,
                             pdf_path=pdf_path,
@@ -41,6 +41,7 @@ def process_batch(batch_id: str, send_email: bool = True):
                         if success:
                             record.status = "SENT"
                         else:
+                            logger.error(f"Failed to email {record.email}: {err_msg}")
                             record.status = "FAILED"
                     else:
                         record.status = "SENT" # Generated successfully

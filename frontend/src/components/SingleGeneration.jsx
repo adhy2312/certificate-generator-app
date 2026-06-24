@@ -5,32 +5,36 @@ export default function SingleGeneration() {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, sendEmailOverride) => {
     e.preventDefault();
     setIsLoading(true);
+    // Update local state to reflect the loading text correctly
+    setFormData(prev => ({ ...prev, send_email: sendEmailOverride }));
+    
+    const payload = { ...formData, send_email: sendEmailOverride };
     const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     setStatus({ type: '', message: '' });
 
     try {
       let response;
-      if (formData.send_email) {
-        response = await fetch(`${API_BASE}/api/process-single`, {
+      if (sendEmailOverride) {
+        response = await fetch(`${API_BASE}/api/jobs/single`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         const data = await response.json();
         if (response.ok && data.success) {
-          setStatus({ type: 'success', message: `Certificate dispatched to ${formData.email}!` });
+          setStatus({ type: 'success', message: `Certificate dispatched to ${payload.email}!` });
           setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'Certificate of Participation', send_email: true });
         } else {
           setStatus({ type: 'error', message: data.detail || 'Failed to process request.' });
         }
       } else {
-        response = await fetch(`${API_BASE}/api/process-single`, {
+        response = await fetch(`${API_BASE}/api/jobs/single`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         
         if (response.ok) {
@@ -38,7 +42,7 @@ export default function SingleGeneration() {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${formData.name}_certificate.pdf`;
+          a.download = `${payload.name}_certificate.pdf`;
           document.body.appendChild(a);
           a.click();
           a.remove();
@@ -142,8 +146,8 @@ export default function SingleGeneration() {
 
         <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
           <button
-            type="submit"
-            onClick={() => setFormData({ ...formData, send_email: true })}
+            type="button"
+            onClick={(e) => handleSubmit(e, true)}
             disabled={isLoading}
             className="clay-btn-primary px-8 py-4 font-bold text-sm uppercase tracking-widest disabled:opacity-50"
           >
@@ -151,8 +155,8 @@ export default function SingleGeneration() {
           </button>
           
           <button
-            type="submit"
-            onClick={() => setFormData({ ...formData, send_email: false })}
+            type="button"
+            onClick={(e) => handleSubmit(e, false)}
             disabled={isLoading}
             className="clay-btn px-8 py-4 font-bold text-sm uppercase tracking-widest disabled:opacity-50"
           >
