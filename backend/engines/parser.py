@@ -62,16 +62,24 @@ def process_source(file_data=None, url=None) -> list:
         # Normalize headers (strip whitespace and title case)
         df.columns = df.columns.str.strip().str.title()
         
-        # Fuzzy match common column names
+        # Fuzzy match common column names (only match the FIRST occurrence to prevent duplicate columns)
         column_mapping = {}
+        found_email = False
+        found_name = False
+        
         for col in df.columns:
             lower_col = col.lower()
-            if "email" in lower_col:
+            if not found_email and "email" in lower_col:
                 column_mapping[col] = "Email"
-            elif "name" in lower_col and "event" not in lower_col:
+                found_email = True
+            elif not found_name and "name" in lower_col and "event" not in lower_col and "school" not in lower_col and "college" not in lower_col:
                 column_mapping[col] = "Name"
+                found_name = True
         
         df.rename(columns=column_mapping, inplace=True)
+        
+        # Strip any duplicate columns just in case
+        df = df.loc[:, ~df.columns.duplicated()]
         
         # Validation
         required_cols = ['Name', 'Email']
