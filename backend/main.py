@@ -97,7 +97,7 @@ async def parse_preview(url: str = Form(None), file: UploadFile = File(None)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/process-single")
+@app.post("/api/jobs/single")
 async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db)):
     logger.info(f"Processing single generation for {req.name}")
     
