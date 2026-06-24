@@ -259,15 +259,28 @@ export default function BulkGeneration() {
               </div>
             </div>
 
-            <div className="max-w-md mx-auto mb-8">
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-2 text-center">Global Cert Type</label>
-              <input
-                type="text"
-                className="clay-input w-full px-5 py-3 text-gray-800 font-medium text-center"
-                value={globalType}
-                onChange={(e) => setGlobalType(e.target.value)}
-                disabled={batchId !== null}
-              />
+            <div className="max-w-md mx-auto mb-8 relative group">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-2 text-center transition-colors group-hover:text-indigo-500">Global Cert Type</label>
+              <div className="relative">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-xl blur opacity-30 group-hover:opacity-70 transition duration-500"></div>
+                <div className="relative bg-white rounded-xl flex items-center">
+                  <select
+                    className="w-full bg-transparent text-gray-800 font-bold text-center appearance-none px-5 py-4 outline-none cursor-pointer rounded-xl z-10 disabled:opacity-50"
+                    value={globalType}
+                    onChange={(e) => setGlobalType(e.target.value)}
+                    disabled={batchId !== null}
+                  >
+                    <option value="Certificate of Participation">Certificate of Participation</option>
+                    <option value="Certificate of Merit">Certificate of Merit</option>
+                    <option value="Certificate of Appreciation">Certificate of Appreciation</option>
+                    <option value="Certificate of Volunteering">Certificate of Volunteering</option>
+                    <option value="Certificate of Recognition">Certificate of Recognition</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none text-indigo-500 group-hover:text-pink-500 transition-colors">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {!batchId ? (
