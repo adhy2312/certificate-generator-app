@@ -46,14 +46,29 @@ def process_source(file_data=None, url=None) -> list:
         else:
             raise ValueError("No data source provided.")
                 
-        # Normalize headers
+        # Normalize headers (strip whitespace and title case)
         df.columns = df.columns.str.strip().str.title()
         
+        # Fuzzy match common column names
+        column_mapping = {}
+        for col in df.columns:
+            lower_col = col.lower()
+            if "email" in lower_col:
+                column_mapping[col] = "Email"
+            elif "name" in lower_col and "event" not in lower_col:
+                column_mapping[col] = "Name"
+        
+        df.rename(columns=column_mapping, inplace=True)
+        
         # Validation
-        required_cols = ['Name', 'Email', 'Tier']
+        required_cols = ['Name', 'Email']
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
-            raise ValueError(f"Missing required columns: {', '.join(missing)}")
+            raise ValueError(f"Missing required columns: {', '.join(missing)}. Please ensure your sheet has Name and Email columns.")
+            
+        # Add default Tier if missing (since you don't need Winner/Resource Person in bulk)
+        if 'Tier' not in df.columns:
+            df['Tier'] = 'Participant'
             
         return df.to_dict(orient='records')
     except Exception as e:
