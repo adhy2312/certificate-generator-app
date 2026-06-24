@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 export default function SingleGeneration() {
-  const [formData, setFormData] = useState({ name: '', email: '', event: '', tier: 'Participant', date: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', event: '', tier: 'Participant', date: '', send_email: true });
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -12,18 +12,42 @@ export default function SingleGeneration() {
     setStatus({ type: '', message: '' });
 
     try {
-      const response = await fetch(`${API_BASE}/api/process-single`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setStatus({ type: 'success', message: `Certificate dispatched to ${formData.email}!` });
-        setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '' });
+      let response;
+      if (formData.send_email) {
+        response = await fetch(`${API_BASE}/api/process-single`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          setStatus({ type: 'success', message: `Certificate dispatched to ${formData.email}!` });
+          setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', send_email: true });
+        } else {
+          setStatus({ type: 'error', message: data.detail || 'Failed to process request.' });
+        }
       } else {
-        setStatus({ type: 'error', message: data.detail || 'Failed to process request.' });
+        response = await fetch(`${API_BASE}/api/process-single`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${formData.name}_certificate.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          setStatus({ type: 'success', message: `Certificate downloaded successfully!` });
+        } else {
+          const data = await response.json();
+          setStatus({ type: 'error', message: data.detail || 'Failed to download certificate.' });
+        }
       }
     } catch (err) {
       setStatus({ type: 'error', message: 'Network error. Please try again.' });
@@ -105,13 +129,23 @@ export default function SingleGeneration() {
           </select>
         </div>
 
-        <div className="pt-8 flex justify-center">
+        <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
           <button
             type="submit"
+            onClick={() => setFormData({ ...formData, send_email: true })}
             disabled={isLoading}
-            className="clay-btn-primary px-10 py-4 font-bold text-sm uppercase tracking-widest disabled:opacity-50 min-w-[240px]"
+            className="clay-btn-primary px-8 py-4 font-bold text-sm uppercase tracking-widest disabled:opacity-50"
           >
-            {isLoading ? 'Processing...' : 'Generate & Dispatch'}
+            {isLoading && formData.send_email ? 'Processing...' : 'Generate & Email'}
+          </button>
+          
+          <button
+            type="submit"
+            onClick={() => setFormData({ ...formData, send_email: false })}
+            disabled={isLoading}
+            className="clay-btn px-8 py-4 font-bold text-sm uppercase tracking-widest disabled:opacity-50"
+          >
+            {isLoading && !formData.send_email ? 'Generating...' : 'Download PDF Only'}
           </button>
         </div>
       </form>

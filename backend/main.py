@@ -39,7 +39,8 @@ class SingleProcessRequest(BaseModel):
     email: str
     event: str
     tier: str
-    date: str = None
+    date: str = ""
+    send_email: bool = True
 
 class BulkProcessRequest(BaseModel):
     records: List[dict]
@@ -83,6 +84,12 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
         cert_log.status = "FAILED"
         db.commit()
         raise HTTPException(status_code=500, detail="PDF generation failed.")
+        
+    if not req.send_email:
+        cert_log.status = "GENERATED"
+        db.commit()
+        from fastapi.responses import FileResponse
+        return FileResponse(pdf_path, media_type="application/pdf", filename=os.path.basename(pdf_path))
         
     success, error_msg = send_certificate_email(req.email, req.name, pdf_path, req.event, req.tier, cert_log.cert_id)
     if not success:

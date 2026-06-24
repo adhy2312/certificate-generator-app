@@ -1,8 +1,8 @@
-import resend
+import smtplib
 import os
-import base64
 import config
 import logging
+from email.message import EmailMessage
 from jinja2 import Environment, FileSystemLoader
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
         template = env.get_template('email_template.html')
         html_body = template.render(name=name, event=event, tier=tier, cert_id=cert_id)
         
-        # Read and encode PDF
+        # Read PDF
         if not os.path.exists(pdf_path):
             logger.error(f"PDF missing at {pdf_path}")
             return False, "PDF generation failed or file is missing."
@@ -22,30 +22,32 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
         with open(pdf_path, 'rb') as f:
             pdf_data = f.read()
         
-        encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
         filename = os.path.basename(pdf_path)
 
-        resend.api_key = config.SENDER_PASS # Use SENDER_PASS variable for the API key
+        # Construct Email
+        msg = EmailMessage()
+        msg['Subject'] = f"Your Certificate - {event}"
+        msg['From'] = f"ISTE MBCET <{config.SENDER_EMAIL}>"
+        msg['To'] = to_email
+        msg.set_content("Please enable HTML to view this email.")
+        msg.add_alternative(html_body, subtype='html')
+        
+        # Attach PDF
+        msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=filename)
 
-        # Send via Resend
-        params = {
-            "from": f"ISTE MBCET <{config.SENDER_EMAIL}>",
-            "to": [to_email],
-            "reply_to": "istestudentchapter@mbcet.ac.in",
-            "subject": f"Your Certificate - {event}",
-            "html": html_body,
-            "attachments": [
-                {
-                    "filename": filename,
-                    "content": encoded_pdf
-                }
-            ]
-        }
+        # Send via Gmail SMTP (Port 587 STARTTLS)
+        with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(config.SENDER_EMAIL, config.SENDER_PASS)
+            smtp.send_message(msg)
 
-        email = resend.Emails.send(params)
-        logger.info(f"Resend dispatched successfully to {to_email}: {email}")
+        logger.info(f"Email dispatched successfully to {to_email} via Gmail")
         return True, "Success"
 
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"Gmail Auth Error: {e}")
+        return False, f"Gmail Authentication Error: {e}"
     except Exception as e:
-        logger.error(f"Resend API error to {to_email}: {e}")
-        return False, f"Resend API Error: {str(e)}"
+        logger.error(f"SMTP error to {to_email}: {type(e).__name__} - {e}")
+        return False, f"SMTP Connection Error: {type(e).__name__} - {e}"
