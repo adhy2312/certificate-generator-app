@@ -2,6 +2,8 @@ import smtplib
 import os
 import config
 import logging
+import base64
+import requests
 from email.message import EmailMessage
 from jinja2 import Environment, FileSystemLoader
 
@@ -24,7 +26,26 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
         
         filename = os.path.basename(pdf_path)
 
-        # Construct Email
+        # Check if Google Apps Script Proxy is configured
+        if config.GAS_MAILER_URL:
+            logger.info("Using Google Apps Script Proxy for dispatch...")
+            encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
+            payload = {
+                "to": to_email,
+                "subject": f"Your Certificate - {event}",
+                "html": html_body,
+                "attachment_base64": encoded_pdf,
+                "filename": filename
+            }
+            resp = requests.post(config.GAS_MAILER_URL, json=payload, timeout=20)
+            if resp.status_code == 200 and resp.json().get('success'):
+                logger.info(f"Email dispatched successfully to {to_email} via GAS Proxy")
+                return True, "Success"
+            else:
+                logger.error(f"GAS Proxy Error: {resp.text}")
+                return False, f"GAS Proxy Error: {resp.text}"
+
+        # Fallback to local Gmail SMTP (Port 587 STARTTLS)
         msg = EmailMessage()
         msg['Subject'] = f"Your Certificate - {event}"
         msg['From'] = f"ISTE MBCET <{config.SENDER_EMAIL}>"
@@ -32,17 +53,15 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
         msg.set_content("Please enable HTML to view this email.")
         msg.add_alternative(html_body, subtype='html')
         
-        # Attach PDF
         msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=filename)
 
-        # Send via Gmail SMTP (Port 587 STARTTLS)
         with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as smtp:
             smtp.ehlo()
             smtp.starttls()
             smtp.login(config.SENDER_EMAIL, config.SENDER_PASS)
             smtp.send_message(msg)
 
-        logger.info(f"Email dispatched successfully to {to_email} via Gmail")
+        logger.info(f"Email dispatched successfully to {to_email} via local Gmail SMTP")
         return True, "Success"
 
     except smtplib.SMTPAuthenticationError as e:

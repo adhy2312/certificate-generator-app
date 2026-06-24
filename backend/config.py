@@ -12,6 +12,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "adhithyamohansbackup@gmail.com")
 SENDER_PASS = os.getenv("SENDER_PASS", "mpnyzpsoxfsejqoe")
+GAS_MAILER_URL = os.getenv("GAS_MAILER_URL", "")
 
 # Ensure required directories exist on boot
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
