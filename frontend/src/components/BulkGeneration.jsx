@@ -94,6 +94,16 @@ export default function BulkGeneration() {
     }
   };
 
+  const handleCancel = async () => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      await fetch(`${API_BASE}/api/jobs/${batchId}/cancel`, { method: 'POST' });
+      setStatus({ type: 'error', message: 'Process terminated mid-way.' });
+    } catch (err) {
+      console.error('Failed to cancel', err);
+    }
+  };
+
   useEffect(() => {
     let interval;
     if (batchId) {
@@ -186,27 +196,29 @@ export default function BulkGeneration() {
         </div>
       </div>
 
-      {preview.length > 0 && (
+      {records.length > 0 && (
         <div className="animate-fadeIn space-y-10">
           <div className="clay-panel overflow-hidden p-4">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-400/20">Name</th>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-400/20">Email</th>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-400/20">Tier</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-white/10 transition-colors">
-                    <td className="p-4 text-sm font-bold text-gray-700">{row.Name}</td>
-                    <td className="p-4 text-sm font-medium text-gray-500">{row.Email}</td>
-                    <td className="p-4 text-sm font-medium text-gray-500">{row.Tier}</td>
+            <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-white shadow-sm z-10">
+                  <tr>
+                    <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-400/20">Name</th>
+                    <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-400/20">Email</th>
+                    <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-400/20">Tier</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {records.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-4 text-sm font-bold text-gray-700">{row.Name}</td>
+                      <td className="p-4 text-sm font-medium text-gray-500">{row.Email}</td>
+                      <td className="p-4 text-sm font-medium text-gray-500">{row.Tier}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="clay-panel p-8 text-center">
@@ -274,10 +286,23 @@ export default function BulkGeneration() {
                   <span>Sent: {jobStatus?.sent || 0}</span>
                   <span>Pending: {jobStatus?.pending || records.length}</span>
                   <span className="text-red-400">Failed: {jobStatus?.failed || 0}</span>
+                  {jobStatus?.cancelled > 0 && <span className="text-orange-400">Cancelled: {jobStatus.cancelled}</span>}
                 </div>
-                <div className="text-sm text-gray-500 font-medium mt-4">
+                <div className="text-sm text-gray-500 font-medium mt-4 text-center">
                   Job ID: <span className="font-mono text-xs">{batchId}</span>
                 </div>
+                
+                {!jobStatus?.completed && (
+                  <div className="mt-4 flex justify-center">
+                    <button 
+                      onClick={handleCancel}
+                      className="px-6 py-2 text-xs font-bold text-red-500 border-2 border-red-200 hover:bg-red-50 rounded-lg transition-colors uppercase tracking-widest"
+                    >
+                      Terminate Process
+                    </button>
+                  </div>
+                )}
+
                 {jobStatus?.completed && (
                   <div className="mt-6 flex justify-center animate-fadeIn">
                     <button 

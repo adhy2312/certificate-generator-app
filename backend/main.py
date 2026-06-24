@@ -369,16 +369,36 @@ async def get_job_status(batch_id: str, db: Session = Depends(get_db)):
     failed = db.query(CertificateLog).filter(
         CertificateLog.batch_id == batch_id, CertificateLog.status == "FAILED"
     ).count()
-    pending = total - sent - failed
+    cancelled = db.query(CertificateLog).filter(
+        CertificateLog.batch_id == batch_id, CertificateLog.status == "CANCELLED"
+    ).count()
+    pending = total - sent - failed - cancelled
 
     return {
         "batch_id": batch_id,
         "total": total,
         "sent": sent,
         "failed": failed,
+        "cancelled": cancelled,
         "pending": pending,
         "completed": pending == 0
     }
+
+@app.post("/api/jobs/{batch_id}/cancel")
+async def cancel_job(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        uuid.UUID(batch_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid batch ID format")
+        
+    # Update all PENDING records to CANCELLED
+    db.query(CertificateLog).filter(
+        CertificateLog.batch_id == batch_id, 
+        CertificateLog.status == "PENDING"
+    ).update({"status": "CANCELLED"}, synchronize_session=False)
+    
+    db.commit()
+    return {"success": True, "message": "Batch processing cancelled."}
 
 
 @app.get("/verify/{cert_id}", response_class=HTMLResponse)

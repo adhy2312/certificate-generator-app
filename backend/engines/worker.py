@@ -18,6 +18,12 @@ def process_batch(batch_id: str, send_email: bool = True):
         
         for record in records:
             try:
+                # Refresh record to check for mid-way cancellation
+                db.refresh(record)
+                if record.status == "CANCELLED":
+                    logger.info(f"Batch {batch_id} was cancelled. Stopping.")
+                    break # Abort the batch processing loop
+                
                 logger.info(f"Processing background record: {record.name}")
                 pdf_path = generate_pdf_from_svg(
                     name=record.name,
