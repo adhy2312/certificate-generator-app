@@ -126,9 +126,21 @@ export default function BulkGeneration() {
     return () => clearInterval(interval);
   }, [batchId]);
 
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (batchId && !jobStatus?.completed) {
+        e.preventDefault();
+        e.returnValue = ''; // Required for Chrome
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [batchId, jobStatus]);
+
   const getProgress = () => {
     if (!jobStatus) return 0;
-    return Math.round(((jobStatus.sent + jobStatus.failed) / jobStatus.total) * 100);
+    return Math.round(((jobStatus.sent + jobStatus.failed + (jobStatus.cancelled || 0)) / jobStatus.total) * 100);
   };
 
   return (
