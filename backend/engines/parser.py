@@ -8,7 +8,6 @@ _ALLOWED_FETCH_DOMAIN = "docs.google.com"
 
 def parse_google_sheet_url(url: str) -> str:
     """Extracts Spreadsheet ID and GID, returns a forced CSV export URL."""
-    # SSRF guard: ensure the URL is actually a Google Sheets URL before parsing
     try:
         parsed = urlparse(url.strip())
         if parsed.netloc != _ALLOWED_FETCH_DOMAIN:
@@ -16,6 +15,13 @@ def parse_google_sheet_url(url: str) -> str:
     except Exception:
         return ""
 
+    # Check for "published to web" links
+    if "/d/e/" in url:
+        match = re.search(r'/d/e/([a-zA-Z0-9-_]+)', url)
+        if match:
+            # Published to web CSV export format
+            return f"https://docs.google.com/spreadsheets/d/e/{match.group(1)}/pub?output=csv"
+            
     match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
     if not match:
         return ""
@@ -24,7 +30,7 @@ def parse_google_sheet_url(url: str) -> str:
     gid_match = re.search(r'[#&]gid=([0-9]+)', url)
     gid = gid_match.group(1) if gid_match else "0"
 
-    return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
+    return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&id={spreadsheet_id}&gid={gid}"
 
 def process_source(file_data=None, url=None) -> list:
     """Parses incoming spreadsheet data using Pandas."""
@@ -36,7 +42,14 @@ def process_source(file_data=None, url=None) -> list:
             export_url = parse_google_sheet_url(url)
             if not export_url:
                 raise ValueError("Could not parse a valid Google Sheets URL.")
-            df = pd.read_csv(export_url)
+            
+            try:
+                df = pd.read_csv(export_url)
+            except Exception as read_err:
+                if "400" in str(read_err) or "404" in str(read_err):
+                    raise ValueError("Google blocked the request. Please ensure the sheet is set to 'Anyone with the link can view'.")
+                else:
+                    raise read_err
         elif file_data:
             # Check filename extension if available, else try pandas read_csv/read_excel
             try:
