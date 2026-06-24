@@ -93,6 +93,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 ALLOWED_ORIGINS = [
     "https://certificate-generator-app-dlh6.onrender.com",
+    "https://certificate-generator-app-iste.vercel.app",
     "http://localhost:5173",
     "http://localhost:4173",
     "http://127.0.0.1:5173",
@@ -104,8 +105,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 logging.basicConfig(level=logging.INFO)
