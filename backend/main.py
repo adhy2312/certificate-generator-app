@@ -147,16 +147,129 @@ async def verify_certificate(cert_id: str, db: Session = Depends(get_db)):
         return "<h1>Invalid Certificate</h1><p>This certificate does not exist in our system.</p>"
     
     return f"""
-    <html>
-        <head><title>Verify Certificate</title></head>
-        <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: green;">✔ Authentic Certificate</h1>
-            <p><strong>Name:</strong> {cert.name}</p>
-            <p><strong>Event:</strong> {cert.event}</p>
-            <p><strong>Tier:</strong> {cert.tier}</p>
-            <p><strong>Date:</strong> {cert.date or cert.created_at.strftime('%Y-%m-%d')}</p>
-            <p style="color: gray; font-size: 12px; margin-top: 30px;">ISTE MBCET Student Chapter Official Ledger</p>
-        </body>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verify Certificate - ISTE MBCET</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+            body {{
+                margin: 0;
+                padding: 0;
+                min-height: 100vh;
+                background-color: #f4f4f0;
+                font-family: 'Space Grotesk', sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #1a1a1a;
+            }}
+            .container {{
+                background: #ffffff;
+                padding: 40px;
+                border: 4px solid #1a1a1a;
+                border-radius: 16px;
+                box-shadow: 8px 8px 0px #1a1a1a;
+                max-width: 500px;
+                width: 90%;
+                text-align: left;
+            }}
+            .badge {{
+                display: inline-block;
+                background: #4ade80;
+                color: #064e3b;
+                padding: 8px 16px;
+                border: 2px solid #064e3b;
+                border-radius: 99px;
+                font-weight: 700;
+                font-size: 14px;
+                margin-bottom: 24px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }}
+            h1 {{
+                font-size: 28px;
+                font-weight: 700;
+                margin: 0 0 8px 0;
+                letter-spacing: -1px;
+            }}
+            p.subtitle {{
+                color: #666;
+                margin: 0 0 32px 0;
+                font-size: 15px;
+            }}
+            .detail-group {{
+                margin-bottom: 20px;
+                padding-bottom: 20px;
+                border-bottom: 2px dashed #e5e5e5;
+            }}
+            .detail-group:last-child {{
+                border-bottom: none;
+                margin-bottom: 0;
+                padding-bottom: 0;
+            }}
+            .label {{
+                font-size: 12px;
+                text-transform: uppercase;
+                color: #666;
+                font-weight: 700;
+                letter-spacing: 1px;
+                margin-bottom: 4px;
+            }}
+            .value {{
+                font-size: 18px;
+                font-weight: 700;
+                color: #1a1a1a;
+            }}
+            .footer {{
+                margin-top: 40px;
+                text-align: center;
+                font-size: 13px;
+                color: #666;
+                font-weight: 700;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="badge">✔ Authentic</div>
+            <h1>Certificate Verified</h1>
+            <p class="subtitle">This official document has been cryptographically verified in the ISTE ledger.</p>
+            
+            <div class="detail-group">
+                <div class="label">Issued To</div>
+                <div class="value">{cert.name}</div>
+            </div>
+            
+            <div class="detail-group">
+                <div class="label">Event Name</div>
+                <div class="value">{cert.event}</div>
+            </div>
+            
+            <div class="detail-group">
+                <div class="label">Role / Tier</div>
+                <div class="value">{cert.tier}</div>
+            </div>
+            
+            <div class="detail-group">
+                <div class="label">Date of Issue</div>
+                <div class="value">{cert.date or cert.created_at.strftime('%B %d, %Y')}</div>
+            </div>
+            
+            <div class="detail-group">
+                <div class="label">Ledger ID</div>
+                <div class="value" style="font-family: monospace; font-size: 14px;">{cert.cert_id}</div>
+            </div>
+
+            <div class="footer">
+                ISTE MBCET Student Chapter
+            </div>
+        </div>
+    </body>
     </html>
     """
 

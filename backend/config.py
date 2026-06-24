@@ -14,6 +14,9 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL", "adhithyamohansbackup@gmail.com")
 SENDER_PASS = os.getenv("SENDER_PASS", "mpnyzpsoxfsejqoe")
 GAS_MAILER_URL = os.getenv("GAS_MAILER_URL", "")
 
+# Verification URL
+PUBLIC_URL = os.getenv("PUBLIC_URL", "https://certificate-generator-app-dlh6.onrender.com")
+
 # Ensure required directories exist on boot
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
