@@ -7,6 +7,17 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('single');
 
+  // Handle QR Code Verification Route natively by redirecting to backend HTML portal
+  if (window.location.pathname.startsWith('/verify/')) {
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    window.location.href = `${API_BASE}${window.location.pathname}`;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f4f4f0] font-sans">
+        <p className="text-gray-600 font-bold text-lg animate-pulse">Redirecting to Secure Ledger...</p>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return <Login onLogin={() => setIsAuthenticated(true)} />;
   }
