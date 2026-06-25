@@ -6,7 +6,7 @@ export default function BulkGeneration() {
   const [file, setFile] = useState(null);
   const [globalEvent, setGlobalEvent] = useState('');
   const [globalDate, setGlobalDate] = useState('');
-  const [globalType, setGlobalType] = useState('Certificate of Participation');
+  const [globalType, setGlobalType] = useState('CERT_Template');
   const [sendEmail, setSendEmail] = useState(true);
   
   const [records, setRecords] = useState([]);
@@ -270,11 +270,8 @@ export default function BulkGeneration() {
                     onChange={(e) => setGlobalType(e.target.value)}
                     disabled={batchId !== null}
                   >
-                    <option value="Certificate of Participation">Certificate of Participation</option>
-                    <option value="Certificate of Merit">Certificate of Merit</option>
-                    <option value="Certificate of Appreciation">Certificate of Appreciation</option>
+                    <option value="CERT_Template">Certificate of Participation</option>
                     <option value="Certificate of Volunteering">Certificate of Volunteering</option>
-                    <option value="Certificate of Recognition">Certificate of Recognition</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none text-indigo-500 group-hover:text-pink-500 transition-colors">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"></path></svg>

@@ -283,7 +283,7 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(cert_log)
 
-    pdf_path = generate_pdf_from_svg(req.name, req.event, req.tier, req.date, cert_log.cert_id)
+    pdf_path = generate_pdf_from_svg(req.name, req.event, req.tier, req.date, cert_log.cert_id, cert_log.cert_type)
     if not pdf_path:
         cert_log.status = "FAILED"
         db.commit()

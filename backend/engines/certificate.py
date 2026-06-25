@@ -8,14 +8,26 @@ from datetime import date
 
 logger = logging.getLogger(__name__)
 
-def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str = None, cert_id: str = None) -> str:
+def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str = None, cert_id: str = None, cert_type: str = "CERT_Template") -> str:
     """
     Handles dynamic certificate generation using Pillow to stamp text over a PNG template.
     Outputs a production-grade PDF directly.
     """
     try:
         # Load the base PNG template
-        template_path = os.path.join(os.path.dirname(__file__), "..", "..", "CERT TEMPLATE.png")
+        filename_map = {
+            "CERT_Template": "CERT TEMPLATE.png",
+            "Certificate of Appreciation": "Certificate Of  Appreciation.png",
+            "Certificate of Recognition": "Certificate Of  Recognition.png",
+            "Certificate of Volunteering": "Certificate Of  Volunteering.png",
+        }
+        
+        if cert_type.startswith("Certificate of Merit"):
+            filename = "Certificate Of  Merit.png"
+        else:
+            filename = filename_map.get(cert_type, "CERT TEMPLATE.png")
+            
+        template_path = os.path.join(os.path.dirname(__file__), "..", "..", filename)
         template_path = os.path.abspath(template_path)
         
         if not os.path.exists(template_path):

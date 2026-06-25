@@ -30,7 +30,8 @@ def process_batch(batch_id: str, send_email: bool = True):
                     event_name=record.event,
                     role=record.tier,
                     cert_date=record.date,
-                    cert_id=record.cert_id
+                    cert_id=record.cert_id,
+                    cert_type=record.cert_type
                 )
                 
                 if pdf_path:
