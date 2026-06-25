@@ -1,0 +1,2 @@
+cert_type: 'Certificate of Merit - 1st Prize'
+Drawing prize: '1st Prize' at (3938.0000000000005, 2782.5600000000004)
