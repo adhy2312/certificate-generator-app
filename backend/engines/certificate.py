@@ -39,13 +39,13 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             draw = ImageDraw.Draw(img)
             width, height = img.size
             
-            # Setup fonts - drastically increase text size for the massive 10K resolution PNG
-            base_font_size = int(height * 0.045) # 4.5% of height
+            # Setup fonts - adjust text size to be compact and elegant
+            base_font_size = int(height * 0.039) # 3.9% of height (tweaked slightly larger)
             
             try:
                 # Load bundled Georgia fonts from the backend/fonts directory
                 font_dir = os.path.join(os.path.dirname(__file__), "..", "fonts")
-                font_large = ImageFont.truetype(os.path.join(font_dir, "georgiab.ttf"), int(base_font_size * 1.6))
+                font_large = ImageFont.truetype(os.path.join(font_dir, "georgiab.ttf"), int(base_font_size * 1.4))
                 font_medium = ImageFont.truetype(os.path.join(font_dir, "georgia.ttf"), base_font_size)
             except IOError:
                 logger.warning("Could not load professional fonts. Using default.")
@@ -53,19 +53,36 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
                 font_medium = ImageFont.load_default()
 
             # Coordinates
-            name_x = width * config.COORD_NAME_X
-            name_y = height * config.COORD_NAME_Y
+            coords = config.CERT_COORDS.get(filename, config.CERT_COORDS["DEFAULT"])
             
-            event_x = width * config.COORD_EVENT_X
-            event_y = height * config.COORD_EVENT_Y
+            name_x = width * config.COORD_X
+            name_y = height * coords["name_y"]
             
-            date_x = width * config.COORD_DATE_X
-            date_y = height * config.COORD_DATE_Y
+            event_x = width * config.COORD_X
+            event_y = height * coords["event_y"]
+            
+            date_x = width * config.COORD_X
+            date_y = height * coords["date_y"]
             
             # Draw Text
-            # We use anchor="mm" to perfectly center the text horizontally and vertically at the coordinate
+            # We use anchor="mm" to perfectly center the text horizontally and vertically
             draw.text((name_x, name_y), name, fill="black", font=font_large, anchor="mm")
             draw.text((event_x, event_y), event_name, fill="#333333", font=font_medium, anchor="mm")
+            
+            # Print Prize if it's a Merit certificate
+            with open("debug_log.txt", "a") as f:
+                f.write(f"cert_type: '{cert_type}'\n")
+            
+            if cert_type.startswith("Certificate of Merit"):
+                prize_text = cert_type.split("-", 1)[1].strip() if "-" in cert_type else "1st Prize"
+                prize_x = width * coords.get("prize_x", config.COORD_X)
+                prize_y = height * coords.get("prize_y", 0.54)
+                
+                with open("debug_log.txt", "a") as f:
+                    f.write(f"Drawing prize: '{prize_text}' at ({prize_x}, {prize_y})\n")
+                    
+                # Drawing prize compactly to avoid overflowing over the surrounding text
+                draw.text((prize_x, prize_y), prize_text, fill="black", font=font_medium, anchor="mm")
             
             display_date = cert_date if cert_date else date.today().strftime('%B %d, %Y')
             draw.text((date_x, date_y), display_date, fill="#555555", font=font_medium, anchor="mm")
@@ -93,8 +110,8 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
                 qr_size = int(width * 0.08)
                 qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
                 
-                qr_x = int(width * config.COORD_QR_X) - (qr_size // 2)
-                qr_y = int(height * config.COORD_QR_Y) - (qr_size // 2)
+                qr_x = int(width * config.QR_X) - (qr_size // 2)
+                qr_y = int(height * coords["qr_y"]) - (qr_size // 2)
                 
                 # Paste QR code onto main image
                 img.paste(qr_img, (qr_x, qr_y))

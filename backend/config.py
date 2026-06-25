@@ -22,14 +22,47 @@ os.makedirs(TEMPLATES_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Certificate Stamping Coordinates (Percentages)
-COORD_NAME_X = 0.50
-COORD_NAME_Y = 0.49
+COORD_X = 0.50
+QR_X = 0.84
 
-COORD_EVENT_X = 0.50
-COORD_EVENT_Y = 0.605
-
-COORD_DATE_X = 0.50
-COORD_DATE_Y = 0.70
-
-COORD_QR_X = 0.84
-COORD_QR_Y = 0.70
+CERT_COORDS = {
+    "DEFAULT": {
+        "name_y": 0.490,
+        "event_y": 0.616,
+        "date_y": 0.721,
+        "qr_y": 0.72,
+        "prize_y": 0.561
+    },
+    "Certificate Of  Merit.png": {
+        "name_y": 0.490,
+        "event_y": 0.616,
+        "date_y": 0.721,
+        "qr_y": 0.72,
+        "prize_y": 0.561,
+        "prize_x": 0.55
+    },
+    "CERT TEMPLATE.png": {
+        "name_y": 0.499,
+        "event_y": 0.608,
+        "date_y": 0.693,
+        "qr_y": 0.70
+    },
+    "Certificate Of  Appreciation.png": {
+        "name_y": 0.490,
+        "event_y": 0.616,
+        "date_y": 0.721,
+        "qr_y": 0.72
+    },
+    "Certificate Of  Recognition.png": {
+        "name_y": 0.490,
+        "event_y": 0.616,
+        "date_y": 0.721,
+        "qr_y": 0.72
+    },
+    "Certificate Of  Volunteering.png": {
+        "name_y": 0.490,
+        "event_y": 0.616,
+        "date_y": 0.721,
+        "qr_y": 0.72
+    }
+}
