@@ -8,6 +8,9 @@ from datetime import date
 
 logger = logging.getLogger(__name__)
 
+# Cache to prevent memory leaks and speed up bulk processing
+_font_cache = {}
+
 def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str = None, cert_id: str = None, cert_type: str = "CERT_Template") -> str:
     """
     Handles dynamic certificate generation using Pillow to stamp text over a PNG template.
@@ -42,15 +45,22 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             # Setup fonts - adjust text size to be compact and elegant
             base_font_size = int(height * 0.039) # 3.9% of height (tweaked slightly larger)
             
-            try:
-                # Load bundled Georgia fonts from the backend/fonts directory
-                font_dir = os.path.join(os.path.dirname(__file__), "..", "fonts")
-                font_large = ImageFont.truetype(os.path.join(font_dir, "georgiab.ttf"), int(base_font_size * 1.4))
-                font_medium = ImageFont.truetype(os.path.join(font_dir, "georgia.ttf"), base_font_size)
-            except IOError:
-                logger.warning("Could not load professional fonts. Using default.")
-                font_large = ImageFont.load_default()
-                font_medium = ImageFont.load_default()
+            if base_font_size not in _font_cache:
+                try:
+                    # Load bundled Georgia fonts from the backend/fonts directory
+                    font_dir = os.path.join(os.path.dirname(__file__), "..", "fonts")
+                    _font_cache[base_font_size] = {
+                        "large": ImageFont.truetype(os.path.join(font_dir, "georgiab.ttf"), int(base_font_size * 1.4)),
+                        "medium": ImageFont.truetype(os.path.join(font_dir, "georgia.ttf"), base_font_size)
+                    }
+                except IOError:
+                    logger.warning("Could not load professional fonts. Using default.")
+                    _font_cache[base_font_size] = {
+                        "large": ImageFont.load_default(),
+                        "medium": ImageFont.load_default()
+                    }
+            font_large = _font_cache[base_font_size]["large"]
+            font_medium = _font_cache[base_font_size]["medium"]
 
             # Coordinates
             coords = config.CERT_COORDS.get(filename, config.CERT_COORDS["DEFAULT"])
@@ -108,13 +118,17 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
                 
                 # Resize QR code to fit roughly 8% of the certificate width
                 qr_size = int(width * 0.08)
-                qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+                qr_img_resized = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
                 
                 qr_x = int(width * config.QR_X) - (qr_size // 2)
                 qr_y = int(height * coords["qr_y"]) - (qr_size // 2)
                 
                 # Paste QR code onto main image
-                img.paste(qr_img, (qr_x, qr_y))
+                img.paste(qr_img_resized, (qr_x, qr_y))
+                
+                # Free QR image memory
+                qr_img_resized.close()
+                qr_img.close()
 
             # Sanitize filename cleanly
             safe_name = re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")
@@ -128,6 +142,10 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             
             img_resized = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
             img_resized.save(output_filename, "PDF", resolution=100.0)
+
+            # Explicitly free memory of PIL images to prevent memory leaks in bulk operations
+            img_resized.close()
+            img.close()
 
             return output_filename
             
