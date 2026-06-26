@@ -52,7 +52,8 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
                 if "Access Denied" in resp.text or "accounts.google.com" in resp.text:
                     err_msg = "Google Apps Script Error: Access Denied. You must deploy the Apps Script Web App with 'Who has access: Anyone'."
                 else:
-                    err_msg = f"Google Apps Script Error: Received unexpected HTML response (Status {resp.status_code}). Ensure the Web App URL is correct."
+                    snippet = resp.text.strip()[:200].replace('\n', ' ')
+                    err_msg = f"Google Apps Script Error: Received HTML instead of JSON. Snippet: {snippet}... Ensure URL ends in /exec and returns JSON."
                 logger.error(err_msg)
                 return False, err_msg
 
