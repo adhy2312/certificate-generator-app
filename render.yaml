@@ -15,3 +15,50 @@ services:
         sync: false
       - key: SENDER_PASS
         sync: false
+
+  # ---------------------------------------------------------------------------
+  # Keep-Alive Cron Job
+  # Pings the /health endpoint every 14 minutes so Render's free-tier web
+  # service never spins down due to inactivity (Render sleeps after 15 min).
+  # ---------------------------------------------------------------------------
+  - type: cron
+    name: iste-cert-hub-keepalive
+    env: python
+    schedule: "*/14 * * * *"
+    buildCommand: "pip install requests"
+    startCommand: >
+      python -c "
+      import requests, os, sys;
+      url = os.getenv('PING_URL', 'https://certificate-generator-app-dlh6.onrender.com/health');
+      r = requests.get(url, timeout=30);
+      print(f'Ping {url} -> {r.status_code}');
+      sys.exit(0 if r.ok else 1)
+      "
+    envVars:
+      - key: PING_URL
+        value: https://certificate-generator-app-dlh6.onrender.com/health
+
+  # ---------------------------------------------------------------------------
+  # Daily DB Cleanup Cron Job
+  # Calls the /api/admin/cleanup endpoint every day at 2 AM UTC to prune old
+  # certificate logs when Supabase storage approaches the 500 MB free limit.
+  # ---------------------------------------------------------------------------
+  - type: cron
+    name: iste-cert-hub-db-cleanup
+    env: python
+    schedule: "0 2 * * *"
+    buildCommand: "pip install requests"
+    startCommand: >
+      python -c "
+      import requests, os, sys, json;
+      url = os.getenv('BACKEND_URL', 'https://certificate-generator-app-dlh6.onrender.com') + '/api/admin/cleanup?force=false';
+      password = os.getenv('GATEKEEPER_PASSWORD');
+      r = requests.post(url, json={'password': password}, timeout=60);
+      print(json.dumps(r.json(), indent=2));
+      sys.exit(0 if r.ok else 1)
+      "
+    envVars:
+      - key: BACKEND_URL
+        value: https://certificate-generator-app-dlh6.onrender.com
+      - key: GATEKEEPER_PASSWORD
+        sync: false

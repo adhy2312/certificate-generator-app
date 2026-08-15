@@ -22,6 +22,7 @@ from engines.parser import process_source
 from engines.certificate import generate_pdf_from_svg
 from engines.mailer import send_certificate_email
 from engines.worker import process_batch
+from engines.cleanup import run_cleanup
 from database import engine, Base, get_db
 from models import CertificateLog
 
@@ -68,6 +69,28 @@ async def cleanup_pdfs_loop():
         await asyncio.sleep(3600)
 
 
+# ---------------------------------------------------------------------------
+# Scheduled DB cleanup loop — runs every 6 hours to prune old records when
+# Supabase storage approaches the free-tier 500 MB limit.
+# ---------------------------------------------------------------------------
+async def scheduled_db_cleanup_loop():
+    # Wait 60s on startup so the DB has time to initialise
+    await asyncio.sleep(60)
+    while True:
+        try:
+            db = next(get_db())
+            try:
+                result = run_cleanup(db)
+                if result["triggered"]:
+                    logger.info(f"[Scheduled Cleanup] {result['message']} | DB size: {result['db_size_mb']} MB")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"[Scheduled Cleanup] Error during DB cleanup: {e}")
+        # Run every 6 hours
+        await asyncio.sleep(6 * 3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize Database tables
@@ -83,10 +106,12 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass  # Column already exists
 
-    # Start auto-cleanup background task
-    task = asyncio.create_task(cleanup_pdfs_loop())
+    # Start auto-cleanup background tasks
+    pdf_task = asyncio.create_task(cleanup_pdfs_loop())
+    db_cleanup_task = asyncio.create_task(scheduled_db_cleanup_loop())
     yield
-    task.cancel()
+    pdf_task.cancel()
+    db_cleanup_task.cancel()
 
 
 app = FastAPI(title="ISTE CertHub API", lifespan=lifespan)
@@ -220,6 +245,34 @@ def esc(value: str) -> str:
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
+@app.get("/health")
+async def health_check():
+    """Keep-alive ping endpoint. Called by Render cron job every 14 minutes
+    to prevent the free-tier web service from spinning down."""
+    return {"status": "ok", "service": "ISTE CertHub API"}
+
+
+@app.post("/api/admin/cleanup")
+async def trigger_cleanup(
+    req: PasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Manually trigger the database cleanup agent.
+    Requires the GATEKEEPER_PASSWORD for authorization.
+    Optionally force the cleanup even if storage is below the threshold
+    by passing ?force=true as a query parameter.
+    """
+    client_ip = request.client.host
+    check_rate_limit(client_ip)
+    if req.password != config.GATEKEEPER_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    force = request.query_params.get("force", "false").lower() == "true"
+    result = run_cleanup(db, force=force)
+    return result
+
 
 @app.post("/api/verify-password")
 async def verify_password(req: PasswordRequest, request: Request):
