@@ -30,11 +30,33 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
         else:
             filename = filename_map.get(cert_type, "CERT TEMPLATE.png")
             
-        template_path = os.path.join(os.path.dirname(__file__), "..", "..", filename)
-        template_path = os.path.abspath(template_path)
+        # Search multiple directories for template files
+        search_dirs = [
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates")),
+            os.getcwd()
+        ]
+        template_path = None
+        for sdir in search_dirs:
+            candidate = os.path.join(sdir, filename)
+            if os.path.exists(candidate):
+                template_path = candidate
+                break
         
-        if not os.path.exists(template_path):
-            raise FileNotFoundError(f"Template not found: {template_path}")
+        if not template_path:
+            # Try case-insensitive matching in search dirs
+            for sdir in search_dirs:
+                if os.path.exists(sdir):
+                    for f in os.listdir(sdir):
+                        if f.lower() == filename.lower() or f.lower().replace("  ", " ") == filename.lower().replace("  ", " "):
+                            template_path = os.path.join(sdir, f)
+                            break
+                if template_path:
+                    break
+                    
+        if not template_path:
+            raise FileNotFoundError(f"Template not found for '{cert_type}' (looked for '{filename}' in {search_dirs})")
             
         with Image.open(template_path) as img:
             # We want to work in RGB for saving to PDF
@@ -111,7 +133,8 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
                         color_mask=SolidFillColorMask(front_color=(12, 35, 64)), # Deep elegant indigo
                         embeded_image_path=logo_path if os.path.exists(logo_path) else None
                     )
-                except ImportError:
+                except Exception as qr_err:
+                    logger.warning(f"Styled QR generation fallback due to: {qr_err}")
                     qr_img = qr.make_image(fill_color="#0c2340", back_color="white")
                 
                 # Resize QR code to fit roughly 8% of the certificate width

@@ -26,7 +26,12 @@ export default function SingleGeneration() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          data = { detail: `Server error (${response.status}: ${response.statusText || 'Unknown'})` };
+        }
         if (response.ok && data.success) {
           setStatus({ type: 'success', message: `Certificate dispatched to ${payload.email}!` });
           setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'CERT_Template', prize: '1st Prize', send_email: true });
@@ -52,12 +57,17 @@ export default function SingleGeneration() {
           window.URL.revokeObjectURL(url);
           setStatus({ type: 'success', message: `Certificate downloaded successfully!` });
         } else {
-          const data = await response.json();
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (jsonErr) {
+            data = { detail: `Server error (${response.status}: ${response.statusText || 'Unknown'})` };
+          }
           setStatus({ type: 'error', message: data.detail || 'Failed to download certificate.' });
         }
       }
     } catch (err) {
-      setStatus({ type: 'error', message: 'Network error. Please try again.' });
+      setStatus({ type: 'error', message: `Connection error: ${err.message || 'Unable to reach backend server.'}` });
     } finally {
       setIsLoading(false);
     }

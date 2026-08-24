@@ -3,9 +3,10 @@ import os
 # Centralized Configuration & State
 GATEKEEPER_PASSWORD = os.getenv("GATEKEEPER_PASSWORD", "ISTE@2069")
 
-# Directory Constants
-TEMPLATES_DIR = "templates"
-OUTPUT_DIR = "output"
+# Directory Constants (absolute paths relative to backend directory)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
 # Email Dispatch Configuration (SMTP)
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
