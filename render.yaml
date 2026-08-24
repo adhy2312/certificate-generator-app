@@ -33,14 +33,14 @@ services:
     startCommand: >
       python -c "
       import requests, os, sys;
-      url = os.getenv('PING_URL', 'https://certificate-generator-app-dlh6.onrender.com/health');
+      url = os.getenv('PING_URL', 'https://certificate-generator-app-v2.onrender.com/health');
       r = requests.get(url, timeout=30);
       print(f'Ping {url} -> {r.status_code}');
       sys.exit(0 if r.ok else 1)
       "
     envVars:
       - key: PING_URL
-        value: https://certificate-generator-app-dlh6.onrender.com/health
+        value: https://certificate-generator-app-v2.onrender.com/health
 
   # ---------------------------------------------------------------------------
   # Daily DB Cleanup Cron Job
@@ -55,7 +55,7 @@ services:
     startCommand: >
       python -c "
       import requests, os, sys, json;
-      url = os.getenv('BACKEND_URL', 'https://certificate-generator-app-dlh6.onrender.com') + '/api/admin/cleanup?force=false';
+      url = os.getenv('BACKEND_URL', 'https://certificate-generator-app-v2.onrender.com') + '/api/admin/cleanup?force=false';
       password = os.getenv('GATEKEEPER_PASSWORD');
       r = requests.post(url, json={'password': password}, timeout=60);
       print(json.dumps(r.json(), indent=2));
@@ -63,6 +63,6 @@ services:
       "
     envVars:
       - key: BACKEND_URL
-        value: https://certificate-generator-app-dlh6.onrender.com
+        value: https://certificate-generator-app-v2.onrender.com
       - key: GATEKEEPER_PASSWORD
         sync: false
