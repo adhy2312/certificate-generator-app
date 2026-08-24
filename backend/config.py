@@ -9,7 +9,7 @@ OUTPUT_DIR = "output"
 
 # Email Dispatch Configuration (SMTP)
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
 SENDER_PASS = os.getenv("SENDER_PASS", "")
 GAS_MAILER_URL = os.getenv("GAS_MAILER_URL", "")

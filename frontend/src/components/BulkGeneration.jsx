@@ -95,10 +95,21 @@ export default function BulkGeneration() {
   };
 
   const handleCancel = async () => {
+    const password = prompt('Enter admin password to cancel this job:');
+    if (!password) return;
     try {
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      await fetch(`${API_BASE}/api/jobs/${batchId}/cancel`, { method: 'POST' });
-      setStatus({ type: 'error', message: 'Process terminated mid-way.' });
+      const res = await fetch(`${API_BASE}/api/jobs/${batchId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        setStatus({ type: 'error', message: 'Process terminated mid-way.' });
+      } else {
+        const data = await res.json();
+        setStatus({ type: 'error', message: data.detail || 'Failed to cancel.' });
+      }
     } catch (err) {
       console.error('Failed to cancel', err);
     }
@@ -271,6 +282,11 @@ export default function BulkGeneration() {
                     disabled={batchId !== null}
                   >
                     <option value="CERT_Template">Certificate of Participation</option>
+                    <option value="Certificate of Merit - 1st Prize">Certificate of Merit – 1st Prize</option>
+                    <option value="Certificate of Merit - 2nd Prize">Certificate of Merit – 2nd Prize</option>
+                    <option value="Certificate of Merit - 3rd Prize">Certificate of Merit – 3rd Prize</option>
+                    <option value="Certificate of Appreciation">Certificate of Appreciation</option>
+                    <option value="Certificate of Recognition">Certificate of Recognition</option>
                     <option value="Certificate of Volunteering">Certificate of Volunteering</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none text-indigo-500 group-hover:text-pink-500 transition-colors">

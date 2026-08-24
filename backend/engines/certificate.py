@@ -80,16 +80,14 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             draw.text((event_x, event_y), event_name, fill="#333333", font=font_medium, anchor="mm")
             
             # Print Prize if it's a Merit certificate
-            with open("debug_log.txt", "a") as f:
-                f.write(f"cert_type: '{cert_type}'\n")
+            logger.debug(f"cert_type: '{cert_type}'")
             
             if cert_type.startswith("Certificate of Merit"):
                 prize_text = cert_type.split("-", 1)[1].strip() if "-" in cert_type else "1st Prize"
                 prize_x = width * coords.get("prize_x", config.COORD_X)
                 prize_y = height * coords.get("prize_y", 0.54)
                 
-                with open("debug_log.txt", "a") as f:
-                    f.write(f"Drawing prize: '{prize_text}' at ({prize_x}, {prize_y})\n")
+                logger.debug(f"Drawing prize: '{prize_text}' at ({prize_x}, {prize_y})")
                     
                 # Drawing prize compactly to avoid overflowing over the surrounding text
                 draw.text((prize_x, prize_y), prize_text, fill="black", font=font_medium, anchor="mm")
@@ -128,7 +126,10 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
                 
                 # Free QR image memory
                 qr_img_resized.close()
-                qr_img.close()
+                try:
+                    qr_img.close()  # qrcode image objects may not have .close() on older versions
+                except AttributeError:
+                    pass
 
             # Sanitize filename cleanly
             safe_name = re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")

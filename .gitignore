@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+backend/.venv/
+.venv/
+venv/
+
+# Environment variables — NEVER commit these
+backend/.env
+frontend/.env
+.env
+
+# Database files (local dev)
+backend/certops.db
+backend/test.db
+certops.db
+
+# Generated output PDFs
+backend/output/
+output/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.sw?
+.DS_Store
+
+# Node
+node_modules/
+frontend/dist/
+
+# Logs
+*.log
+debug_log.txt
+backend/debug_log.txt
+backend/vercel_out.txt

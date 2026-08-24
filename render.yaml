@@ -3,7 +3,7 @@ services:
     name: iste-cert-hub-backend
     env: python
     buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    startCommand: "cd backend && gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:$PORT --timeout 120"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -15,6 +15,10 @@ services:
         sync: false
       - key: SENDER_PASS
         sync: false
+      - key: GATEKEEPER_PASSWORD
+        sync: false
+      - key: GAS_MAILER_URL
+        sync: false
 
   # ---------------------------------------------------------------------------
   # Keep-Alive Cron Job
@@ -24,7 +28,7 @@ services:
   - type: cron
     name: iste-cert-hub-keepalive
     env: python
-    schedule: "*/14 * * * *"
+    schedule: "*/10 * * * *"
     buildCommand: "pip install requests"
     startCommand: >
       python -c "

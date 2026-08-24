@@ -315,6 +315,8 @@ async def parse_preview(request: Request):
                 records = process_source(url=str(url_val))
             else:
                 raise HTTPException(status_code=400, detail="Provide a Google Sheets URL or upload a file.")
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported content type. Use multipart/form-data.")
 
         return {"records": records[:3], "full_records": records}
 
@@ -438,7 +440,12 @@ async def get_job_status(batch_id: str, db: Session = Depends(get_db)):
     }
 
 @app.post("/api/jobs/{batch_id}/cancel")
-async def cancel_job(batch_id: str, db: Session = Depends(get_db)):
+async def cancel_job(batch_id: str, req: PasswordRequest, request: Request, db: Session = Depends(get_db)):
+    client_ip = request.client.host
+    check_rate_limit(client_ip)
+    if req.password != config.GATEKEEPER_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
     try:
         uuid.UUID(batch_id)
     except ValueError:
