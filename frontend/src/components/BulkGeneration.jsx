@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { safeFetchJson, getApiBaseUrl } from '../api';
 
 export default function BulkGeneration() {
   const [inputMethod, setInputMethod] = useState('link');
@@ -40,22 +41,20 @@ export default function BulkGeneration() {
     }
 
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE}/api/parse-preview`, {
+      const data = await safeFetchJson('/api/parse-preview', {
         method: 'POST',
         body: formData,
       });
-      const data = await response.json();
       
-      if (response.ok) {
-        setPreview(data.records);
+      if (data && data.full_records) {
+        setPreview(data.records || []);
         setRecords(data.full_records);
         setStatus({ type: 'success', message: `Loaded ${data.full_records.length} records successfully.` });
       } else {
-        setStatus({ type: 'error', message: data.detail || 'Parsing failed.' });
+        setStatus({ type: 'error', message: data?.detail || 'Parsing failed.' });
       }
     } catch (err) {
-      setStatus({ type: 'error', message: 'Network error.' });
+      setStatus({ type: 'error', message: err.message || 'Failed to parse data source.' });
     } finally {
       setIsParsing(false);
     }
@@ -71,8 +70,7 @@ export default function BulkGeneration() {
     setSendEmail(sendEmailOverride);
     
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE}/api/jobs/bulk`, {
+      const data = await safeFetchJson('/api/jobs/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -83,14 +81,13 @@ export default function BulkGeneration() {
           send_email: sendEmailOverride
         }),
       });
-      const data = await response.json();
-      if (response.ok) {
+      if (data && data.batch_id) {
         setBatchId(data.batch_id);
       } else {
-        setStatus({ type: 'error', message: data.detail || 'Dispatch failed' });
+        setStatus({ type: 'error', message: data?.detail || 'Dispatch failed' });
       }
     } catch (err) {
-      setStatus({ type: 'error', message: 'Network error.' });
+      setStatus({ type: 'error', message: err.message || 'Dispatch failed.' });
     }
   };
 
@@ -98,20 +95,14 @@ export default function BulkGeneration() {
     const password = prompt('Enter admin password to cancel this job:');
     if (!password) return;
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_BASE}/api/jobs/${batchId}/cancel`, {
+      const data = await safeFetchJson(`/api/jobs/${batchId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
-      if (res.ok) {
-        setStatus({ type: 'error', message: 'Process terminated mid-way.' });
-      } else {
-        const data = await res.json();
-        setStatus({ type: 'error', message: data.detail || 'Failed to cancel.' });
-      }
+      setStatus({ type: 'error', message: data?.message || 'Process terminated mid-way.' });
     } catch (err) {
-      console.error('Failed to cancel', err);
+      setStatus({ type: 'error', message: err.message || 'Failed to cancel job.' });
     }
   };
 
@@ -120,17 +111,15 @@ export default function BulkGeneration() {
     if (batchId) {
       interval = setInterval(async () => {
         try {
-          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-          const res = await fetch(`${API_BASE}/api/jobs/${batchId}`);
-          const data = await res.json();
+          const data = await safeFetchJson(`/api/jobs/${batchId}`);
           setJobStatus(data);
           
-          if (data.completed) {
+          if (data?.completed) {
             clearInterval(interval);
             setStatus({ type: 'success', message: `Pipeline Complete! Dispatched ${data.sent} / ${data.total} certificates. Failed: ${data.failed}` });
           }
         } catch (err) {
-          console.error(err);
+          console.error('Job status polling error:', err);
         }
       }, 2000);
     }
@@ -345,7 +334,7 @@ export default function BulkGeneration() {
                   <div className="mt-6 flex justify-center animate-fadeIn">
                     <button 
                       onClick={() => {
-                        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                        const API_BASE = getApiBaseUrl();
                         window.open(`${API_BASE}/api/jobs/${batchId}/download`, '_blank');
                       }}
                       className="clay-btn bg-green-500 text-white font-bold py-3 px-8 text-sm uppercase tracking-wider"

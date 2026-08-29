@@ -32,8 +32,20 @@ logger = logging.getLogger(__name__)
 # Rate limiting: simple in-memory store (resets on server restart)
 # ---------------------------------------------------------------------------
 _login_attempts: dict = {}  # ip -> (count, window_start_epoch)
-MAX_LOGIN_ATTEMPTS = 5
+MAX_LOGIN_ATTEMPTS = 10
 LOGIN_WINDOW_SECONDS = 300  # 5 minutes
+
+def get_client_ip(request: Request) -> str:
+    """Extract real client IP from Cloudflare / Render proxy headers or fallback to request.client."""
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        return cf_ip.strip()
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
 
 def check_rate_limit(ip: str):
     now = time.time()
@@ -48,8 +60,13 @@ def check_rate_limit(ip: str):
     if count > MAX_LOGIN_ATTEMPTS:
         raise HTTPException(
             status_code=429,
-            detail=f"Too many login attempts. Please wait {LOGIN_WINDOW_SECONDS // 60} minutes."
+            detail=f"Too many attempts. Please wait {LOGIN_WINDOW_SECONDS // 60} minutes."
         )
+
+def reset_rate_limit(ip: str):
+    """Reset rate limit counter on successful action."""
+    if ip in _login_attempts:
+        _login_attempts.pop(ip, None)
 
 
 # ---------------------------------------------------------------------------
@@ -156,12 +173,28 @@ logging.basicConfig(level=logging.INFO)
 # Global exception handlers — always include CORS so the browser sees the
 # actual error instead of a phantom "No CORS header" failure.
 # ---------------------------------------------------------------------------
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=422,
         content={"detail": str(exc)},
-        headers={"Access-Control-Allow-Origin": "*"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
     )
 
 @app.exception_handler(Exception)
@@ -170,7 +203,11 @@ async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
-        headers={"Access-Control-Allow-Origin": "*"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
     )
 
 
@@ -264,11 +301,12 @@ async def trigger_cleanup(
     Optionally force the cleanup even if storage is below the threshold
     by passing ?force=true as a query parameter.
     """
-    client_ip = request.client.host
+    client_ip = get_client_ip(request)
     check_rate_limit(client_ip)
     if req.password != config.GATEKEEPER_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid password")
 
+    reset_rate_limit(client_ip)
     force = request.query_params.get("force", "false").lower() == "true"
     result = run_cleanup(db, force=force)
     return result
@@ -276,9 +314,10 @@ async def trigger_cleanup(
 
 @app.post("/api/verify-password")
 async def verify_password(req: PasswordRequest, request: Request):
-    client_ip = request.client.host
+    client_ip = get_client_ip(request)
     check_rate_limit(client_ip)
     if req.password == config.GATEKEEPER_PASSWORD:
+        reset_rate_limit(client_ip)
         return {"success": True, "token": "authenticated"}
     raise HTTPException(status_code=401, detail="Invalid password")
 
@@ -441,10 +480,12 @@ async def get_job_status(batch_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/jobs/{batch_id}/cancel")
 async def cancel_job(batch_id: str, req: PasswordRequest, request: Request, db: Session = Depends(get_db)):
-    client_ip = request.client.host
+    client_ip = get_client_ip(request)
     check_rate_limit(client_ip)
     if req.password != config.GATEKEEPER_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid password")
+
+    reset_rate_limit(client_ip)
 
     try:
         uuid.UUID(batch_id)

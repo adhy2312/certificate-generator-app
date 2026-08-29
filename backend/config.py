@@ -16,7 +16,7 @@ SENDER_PASS = os.getenv("SENDER_PASS", "")
 GAS_MAILER_URL = os.getenv("GAS_MAILER_URL", "")
 
 # Verification URL
-PUBLIC_URL = os.getenv("PUBLIC_URL", "https://certificate-generator-app-dlh6.onrender.com")
+PUBLIC_URL = os.getenv("PUBLIC_URL", "https://certificate-generator-app-v2.onrender.com")
 
 # Ensure required directories exist on boot
 os.makedirs(TEMPLATES_DIR, exist_ok=True)

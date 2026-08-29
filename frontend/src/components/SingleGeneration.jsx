@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { safeFetchJson, getApiBaseUrl } from '../api';
 
 export default function SingleGeneration() {
   const [formData, setFormData] = useState({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'CERT_Template', prize: '1st Prize', send_email: true });
@@ -15,35 +16,38 @@ export default function SingleGeneration() {
     if (payload.cert_type === 'Certificate of Merit') {
       payload.cert_type = `Certificate of Merit - ${payload.prize}`;
     }
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const API_BASE = getApiBaseUrl();
     setStatus({ type: '', message: '' });
 
     try {
-      let response;
       if (sendEmailOverride) {
-        response = await fetch(`${API_BASE}/api/jobs/single`, {
+        const data = await safeFetchJson('/api/jobs/single', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        let data = {};
-        try {
-          data = await response.json();
-        } catch (jsonErr) {
-          data = { detail: `Server error (${response.status}: ${response.statusText || 'Unknown'})` };
-        }
-        if (response.ok && data.success) {
+        if (data && data.success) {
           setStatus({ type: 'success', message: `Certificate dispatched to ${payload.email}!` });
           setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'CERT_Template', prize: '1st Prize', send_email: true });
         } else {
-          setStatus({ type: 'error', message: data.detail || 'Failed to process request.' });
+          setStatus({ type: 'error', message: data?.detail || 'Failed to process request.' });
         }
       } else {
-        response = await fetch(`${API_BASE}/api/jobs/single`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        let response;
+        try {
+          response = await fetch(`${API_BASE}/api/jobs/single`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } catch (netErr) {
+          const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+          if (isLocal) {
+            throw new Error(`Cannot connect to local backend (${API_BASE}). Please ensure uvicorn is running on port 8000.`);
+          } else {
+            throw new Error('Connection failed. Backend may be waking up from sleep on Render. Please try again.');
+          }
+        }
         
         if (response.ok) {
           const blob = await response.blob();
@@ -57,17 +61,19 @@ export default function SingleGeneration() {
           window.URL.revokeObjectURL(url);
           setStatus({ type: 'success', message: `Certificate downloaded successfully!` });
         } else {
-          let data = {};
+          let errorMsg = `Server error (${response.status}: ${response.statusText || 'Unknown'})`;
           try {
-            data = await response.json();
-          } catch (jsonErr) {
-            data = { detail: `Server error (${response.status}: ${response.statusText || 'Unknown'})` };
+            const errData = await response.json();
+            if (errData?.detail) errorMsg = errData.detail;
+          } catch {
+            const text = await response.text();
+            if (text) errorMsg = text;
           }
-          setStatus({ type: 'error', message: data.detail || 'Failed to download certificate.' });
+          setStatus({ type: 'error', message: errorMsg });
         }
       }
     } catch (err) {
-      setStatus({ type: 'error', message: `Connection error: ${err.message || 'Unable to reach backend server.'}` });
+      setStatus({ type: 'error', message: err.message || 'Connection error: Unable to reach backend server.' });
     } finally {
       setIsLoading(false);
     }

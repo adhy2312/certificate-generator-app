@@ -1,33 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { safeFetchJson } from '../api';
 
 export default function Login({ onLogin }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingTime, setLoadingTime] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (isLoading) {
+      timer = setInterval(() => {
+        setLoadingTime((t) => t + 1);
+      }, 1000);
+    } else {
+      setLoadingTime(0);
+    }
+    return () => clearInterval(timer);
+  }, [isLoading]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     setError('');
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/verify-password`, {
+      const data = await safeFetchJson('/api/verify-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          onLogin();
-        }
+      if (data && data.success) {
+        onLogin();
       } else {
         setError('Access Denied: Incorrect gatekeeper token.');
       }
     } catch (err) {
-      setError('Network error. Ensure backend is running.');
+      setError(err.message || 'Authentication failed. Please check backend connection.');
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +78,9 @@ export default function Login({ onLogin }) {
             className="clay-btn-primary w-full py-4 px-6 font-bold text-lg uppercase tracking-widest disabled:opacity-70 flex justify-center items-center"
           >
             {isLoading ? (
-              <span className="animate-pulse">Verifying...</span>
+              <span className="animate-pulse">
+                {loadingTime > 3 ? `Connecting (Waking up server ${loadingTime}s)...` : 'Verifying...'}
+              </span>
             ) : 'Authenticate'}
           </button>
         </form>

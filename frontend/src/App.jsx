@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Login from './components/Login';
 import SingleGeneration from './components/SingleGeneration';
 import BulkGeneration from './components/BulkGeneration';
+import { getApiBaseUrl } from './api';
 
 function App() {
   // Persist auth across page refreshes using sessionStorage (cleared when browser tab closes)
@@ -22,7 +23,7 @@ function App() {
 
   // Handle QR Code Verification Route natively by redirecting to backend HTML portal
   if (window.location.pathname.startsWith('/verify/')) {
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const API_BASE = getApiBaseUrl();
     window.location.href = `${API_BASE}${window.location.pathname}`;
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f4f4f0] font-sans">
