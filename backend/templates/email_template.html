@@ -2,23 +2,57 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; padding: 40px 0;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 40px; text-align: center;">
-        <h1 style="color: #4f46e5; margin-bottom: 20px;">Congratulations, {{ name }}!</h1>
-        <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
-            Thank you for participating in <strong>{{ event }}</strong> as a {{ tier }}.
-        </p>
-        <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 30px; text-align: left; border-left: 4px solid #4f46e5;">
-            <p style="margin: 0 0 10px 0; color: #374151;"><strong>Certificate Type:</strong> {{ cert_type }}</p>
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f0; margin: 0; padding: 40px 20px;">
+    <div style="max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 3px solid #1a1a1a; box-shadow: 6px 6px 0px #1a1a1a; overflow: hidden; padding: 36px 32px; text-align: left; color: #1a1a1a;">
+        
+        <!-- Header Badge -->
+        <div style="display: inline-block; background-color: #eff6ff; color: #1d4ed8; padding: 6px 14px; border: 1.5px solid #1d4ed8; border-radius: 99px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 20px;">
+            Official Digital Certificate
         </div>
-        <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 40px;">
-            Please find your official digital certificate attached to this email. You can verify the authenticity of your certificate by scanning the QR code on the document.
+
+        <h1 style="font-size: 24px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0; line-height: 1.3;">
+            Congratulations, {{ name }}!
+        </h1>
+
+        <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+            We are pleased to present your official <strong>{{ cert_type }}</strong> for <strong>{{ event }}</strong>{% if tier and tier != 'Participant' %} ({{ tier }}){% endif %}.
         </p>
-        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; color: #9ca3af; font-size: 12px;">
-            <p>ISTE MBCET Student Chapter</p>
-            <p>Verification ID: {{ cert_id }}</p>
+
+        <!-- Document Details Box -->
+        <div style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600; width: 140px;">Recipient Name:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">{{ name }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Event Name:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">{{ event }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Certificate Type:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">{{ cert_type }}</td>
+                </tr>
+                {% if cert_id %}
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Verification ID:</td>
+                    <td style="padding: 6px 0; color: #2563eb; font-family: monospace; font-weight: 700; font-size: 13px;">{{ cert_id }}</td>
+                </tr>
+                {% endif %}
+            </table>
         </div>
+
+        <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 24px 0;">
+            Your official PDF certificate is attached to this email. You can verify its authenticity anytime by scanning the embedded QR code on the certificate.
+        </p>
+
+        <div style="border-top: 2px dashed #e2e8f0; padding-top: 20px; font-size: 12px; color: #64748b; text-align: center;">
+            <p style="margin: 0 0 4px 0; font-weight: 700; color: #0f172a;">ISTE MBCET Student Chapter</p>
+            <p style="margin: 0;">This is an automated message. Please do not reply directly to this email.</p>
+        </div>
+
     </div>
 </body>
 </html>

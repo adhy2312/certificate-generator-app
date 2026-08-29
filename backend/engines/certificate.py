@@ -102,9 +102,12 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             date_x = width * config.COORD_X
             date_y = height * coords["date_y"]
             
+            # Clean up recipient name to proper Title Case
+            clean_name = name.strip().title() if name else ""
+
             # Draw Text
             # We use anchor="mm" to perfectly center the text horizontally and vertically
-            draw.text((name_x, name_y), name, fill="black", font=font_large, anchor="mm")
+            draw.text((name_x, name_y), clean_name, fill="black", font=font_large, anchor="mm")
             draw.text((event_x, event_y), event_name, fill="#333333", font=font_medium, anchor="mm")
             
             # Print Prize if it's a Merit certificate

@@ -13,9 +13,16 @@ env = Environment(loader=FileSystemLoader(_TEMPLATES_DIR))
 
 def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "", cert_type: str = "Certificate") -> tuple[bool, str]:
     try:
+        clean_name = name.strip().title()
+        # Create a clean, professional attachment filename (e.g. Adhy_Mohan_Certificate.pdf)
+        safe_name_str = re.sub(r'[^a-zA-Z0-9_-]', '_', clean_name).replace(" ", "_")
+        attachment_filename = f"{safe_name_str}_Certificate.pdf"
+        
+        subject = f"Your {cert_type} - {event}"
+
         # Load and render template
         template = env.get_template('email_template.html')
-        html_body = template.render(name=name, event=event, tier=tier, cert_id=cert_id, cert_type=cert_type)
+        html_body = template.render(name=clean_name, event=event, tier=tier, cert_id=cert_id, cert_type=cert_type)
         
         # Read PDF
         if not os.path.exists(pdf_path):
@@ -24,8 +31,6 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
             
         with open(pdf_path, 'rb') as f:
             pdf_data = f.read()
-        
-        filename = os.path.basename(pdf_path)
 
         # Check if Google Apps Script Proxy is configured
         if config.GAS_MAILER_URL:
@@ -33,10 +38,10 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
             encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
             payload = {
                 "to": to_email,
-                "subject": f"Your Certificate - {event}",
+                "subject": subject,
                 "html": html_body,
                 "attachment_base64": encoded_pdf,
-                "filename": filename
+                "filename": attachment_filename
             }
             resp = requests.post(config.GAS_MAILER_URL, json=payload, timeout=90)
             
@@ -60,13 +65,13 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
 
         # Fallback to local Gmail SMTP (Port 587 STARTTLS)
         msg = EmailMessage()
-        msg['Subject'] = f"Your Certificate - {event}"
+        msg['Subject'] = subject
         msg['From'] = f"ISTE MBCET <{config.SENDER_EMAIL}>"
         msg['To'] = to_email
         msg.set_content("Please enable HTML to view this email.")
         msg.add_alternative(html_body, subtype='html')
         
-        msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=filename)
+        msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=attachment_filename)
 
         with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as smtp:
             smtp.ehlo()

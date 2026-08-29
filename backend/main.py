@@ -368,16 +368,16 @@ async def parse_preview(request: Request):
 @app.post("/api/jobs/single")
 async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db)):
     logger.info(f"Processing single generation for {req.name}")
-
+    clean_name = req.name.strip().title()
     cert_log = CertificateLog(
-        name=req.name, email=req.email, event=req.event, tier=req.tier,
+        name=clean_name, email=req.email, event=req.event, tier=req.tier,
         date=req.date, cert_type=req.cert_type
     )
     db.add(cert_log)
     db.commit()
     db.refresh(cert_log)
 
-    pdf_path = generate_pdf_from_svg(req.name, req.event, req.tier, req.date, cert_log.cert_id, cert_log.cert_type)
+    pdf_path = generate_pdf_from_svg(clean_name, req.event, req.tier, req.date, cert_log.cert_id, cert_log.cert_type)
     if not pdf_path:
         cert_log.status = "FAILED"
         db.commit()
@@ -514,12 +514,16 @@ async def verify_certificate(cert_id: str, db: Session = Depends(get_db)):
     if not cert:
         return HTMLResponse(content="""
         <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-        <title>Invalid Certificate</title>
-        <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f4f4f0;}
-        .box{background:#fff;padding:40px;border:4px solid #1a1a1a;border-radius:16px;box-shadow:8px 8px 0 #1a1a1a;text-align:center;}</style>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Invalid Certificate - ISTE MBCET</title>
+        <style>
+        body{font-family:'Space Grotesk',sans-serif,system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f4f4f0;color:#1a1a1a;}
+        .box{background:#fff;padding:40px;border:4px solid #1a1a1a;border-radius:16px;box-shadow:8px 8px 0 #1a1a1a;text-align:center;max-width:400px;width:90%;}
+        h1{font-size:22px;margin:0 0 12px 0;} p{color:#666;font-size:14px;margin:0;}
+        </style>
         </head><body><div class="box"><h1>⚠️ Invalid Certificate</h1>
-        <p>This certificate does not exist in our system.</p></div></body></html>
-        """, status_code=404)
+        <p>This certificate ID was not found in the ISTE MBCET verification ledger.</p></div></body></html>
+        """, status_code=200)
 
     # XSS-safe: escape every database value before injecting into HTML
     safe_cert_type = esc(cert.cert_type)
