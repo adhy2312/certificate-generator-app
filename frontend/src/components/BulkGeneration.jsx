@@ -7,7 +7,7 @@ export default function BulkGeneration() {
   const [file, setFile] = useState(null);
   const [globalEvent, setGlobalEvent] = useState('');
   const [globalDate, setGlobalDate] = useState('');
-  const [globalType, setGlobalType] = useState('CERT_Template');
+  const [globalType, setGlobalType] = useState('Certificate of Participation');
   const [sendEmail, setSendEmail] = useState(true);
   
   const [records, setRecords] = useState([]);
@@ -270,7 +270,7 @@ export default function BulkGeneration() {
                     onChange={(e) => setGlobalType(e.target.value)}
                     disabled={batchId !== null}
                   >
-                    <option value="CERT_Template">Certificate of Participation</option>
+                    <option value="Certificate of Participation">Certificate of Participation</option>
                     <option value="Certificate of Merit - 1st Prize">Certificate of Merit – 1st Prize</option>
                     <option value="Certificate of Merit - 2nd Prize">Certificate of Merit – 2nd Prize</option>
                     <option value="Certificate of Merit - 3rd Prize">Certificate of Merit – 3rd Prize</option>

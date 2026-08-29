@@ -11,15 +11,19 @@ logger = logging.getLogger(__name__)
 # Cache to prevent memory leaks and speed up bulk processing
 _font_cache = {}
 
-def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str = None, cert_id: str = None, cert_type: str = "CERT_Template") -> str:
+def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str = None, cert_id: str = None, cert_type: str = "Certificate of Participation") -> str:
     """
     Handles dynamic certificate generation using Pillow to stamp text over a PNG template.
     Outputs a production-grade PDF directly.
     """
     try:
+        # Normalize legacy constant CERT_Template to clean Certificate of Participation
+        if cert_type == "CERT_Template":
+            cert_type = "Certificate of Participation"
+
         # Load the base PNG template
         filename_map = {
-            "CERT_Template": "CERT TEMPLATE.png",
+            "Certificate of Participation": "CERT TEMPLATE.png",
             "Certificate of Appreciation": "Certificate Of  Appreciation.png",
             "Certificate of Recognition": "Certificate Of  Recognition.png",
             "Certificate of Volunteering": "Certificate Of  Volunteering.png",

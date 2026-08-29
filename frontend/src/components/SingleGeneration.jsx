@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { safeFetchJson, getApiBaseUrl } from '../api';
 
 export default function SingleGeneration() {
-  const [formData, setFormData] = useState({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'CERT_Template', prize: '1st Prize', send_email: true });
+  const [formData, setFormData] = useState({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'Certificate of Participation', prize: '1st Prize', send_email: true });
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -28,7 +28,7 @@ export default function SingleGeneration() {
         });
         if (data && data.success) {
           setStatus({ type: 'success', message: `Certificate dispatched to ${payload.email}!` });
-          setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'CERT_Template', prize: '1st Prize', send_email: true });
+          setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'Certificate of Participation', prize: '1st Prize', send_email: true });
         } else {
           setStatus({ type: 'error', message: data?.detail || 'Failed to process request.' });
         }
@@ -162,7 +162,7 @@ export default function SingleGeneration() {
                 value={formData.cert_type}
                 onChange={(e) => setFormData({ ...formData, cert_type: e.target.value })}
               >
-                <option value="CERT_Template">Certificate of Participation</option>
+                <option value="Certificate of Participation">Certificate of Participation</option>
                 <option value="Certificate of Merit">Certificate of Merit</option>
                 <option value="Certificate of Appreciation">Certificate of Appreciation</option>
                 <option value="Certificate of Volunteering">Certificate of Volunteering</option>

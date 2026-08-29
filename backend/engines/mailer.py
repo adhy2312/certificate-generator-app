@@ -12,8 +12,11 @@ logger = logging.getLogger(__name__)
 _TEMPLATES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", config.TEMPLATES_DIR))
 env = Environment(loader=FileSystemLoader(_TEMPLATES_DIR))
 
-def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "", cert_type: str = "Certificate") -> tuple[bool, str]:
+def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str = "Event", tier: str = "Participant", cert_id: str = "", cert_type: str = "Certificate of Participation") -> tuple[bool, str]:
     try:
+        if cert_type == "CERT_Template":
+            cert_type = "Certificate of Participation"
+
         clean_name = name.strip().title()
         # Create a clean, professional attachment filename (e.g. Adhy_Mohan_Certificate.pdf)
         safe_name_str = re.sub(r'[^a-zA-Z0-9_-]', '_', clean_name).replace(" ", "_")

@@ -369,9 +369,10 @@ async def parse_preview(request: Request):
 async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db)):
     logger.info(f"Processing single generation for {req.name}")
     clean_name = req.name.strip().title()
+    clean_cert_type = "Certificate of Participation" if req.cert_type == "CERT_Template" else req.cert_type
     cert_log = CertificateLog(
         name=clean_name, email=req.email, event=req.event, tier=req.tier,
-        date=req.date, cert_type=req.cert_type
+        date=req.date, cert_type=clean_cert_type
     )
     db.add(cert_log)
     db.commit()
@@ -428,7 +429,8 @@ async def process_bulk(
         name = str(record.get("Name", ""))[:MAX_STR].strip()
         email = str(record.get("Email", ""))[:254].strip()
         tier = str(record.get("Tier", ""))[:MAX_STR].strip()
-        rec_type = str(record.get("Type", req.cert_type))[:MAX_STR].strip()
+        raw_type = str(record.get("Type", req.cert_type))[:MAX_STR].strip()
+        rec_type = "Certificate of Participation" if raw_type in ["CERT_Template", ""] else raw_type
 
         if not name or not email:
             continue  # Skip malformed records silently
