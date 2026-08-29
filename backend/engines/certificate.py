@@ -58,9 +58,15 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
         if not template_path:
             raise FileNotFoundError(f"Template not found for '{cert_type}' (looked for '{filename}' in {search_dirs})")
             
-        with Image.open(template_path) as img:
-            # We want to work in RGB for saving to PDF
-            img = img.convert("RGB")
+        with Image.open(template_path) as raw_img:
+            # Downsample ultra high-res templates immediately to max 2800px width to prevent OOM on 512MB RAM servers
+            if raw_img.width > 2800:
+                target_w = 2800
+                target_h = int(raw_img.height * (2800 / raw_img.width))
+                img = raw_img.resize((target_w, target_h), Image.Resampling.LANCZOS).convert("RGB")
+            else:
+                img = raw_img.convert("RGB")
+
             draw = ImageDraw.Draw(img)
             width, height = img.size
             
@@ -159,16 +165,9 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
             output_filename = os.path.join(config.OUTPUT_DIR, f"{safe_name}_{cert_id or 'cert'}.pdf")
             
             # Save directly to PDF
-            # Downscaling to save disk space without losing quality for printing (e.g., 2000px width)
-            target_width = 2400
-            scale_factor = target_width / width
-            target_height = int(height * scale_factor)
-            
-            img_resized = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
-            img_resized.save(output_filename, "PDF", resolution=100.0)
+            img.save(output_filename, "PDF", resolution=100.0)
 
-            # Explicitly free memory of PIL images to prevent memory leaks in bulk operations
-            img_resized.close()
+            # Explicitly free memory of PIL image
             img.close()
 
             return output_filename
