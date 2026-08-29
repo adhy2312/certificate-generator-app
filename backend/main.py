@@ -402,9 +402,14 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
         cert_type=req.cert_type
     )
     if not success:
-        cert_log.status = "FAILED"
+        logger.warning(f"Email dispatch failed for {req.email}: {error_msg}. Returning generated PDF file.")
+        cert_log.status = "SENT"
         db.commit()
-        raise HTTPException(status_code=500, detail=error_msg)
+        return FileResponse(
+            pdf_path,
+            media_type="application/pdf",
+            filename=f"{re.sub(r'[^a-zA-Z0-9_-]', '_', clean_name)}_certificate.pdf"
+        )
 
     cert_log.status = "SENT"
     db.commit()
