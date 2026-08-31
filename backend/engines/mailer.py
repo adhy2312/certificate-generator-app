@@ -77,7 +77,7 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
         
         msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=attachment_filename)
 
-        with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as smtp:
+        with smtplib.SMTP('smtp.gmail.com', 587, timeout=5) as smtp:
             smtp.ehlo()
             smtp.starttls()
             smtp.login(config.SENDER_EMAIL, config.SENDER_PASS)

@@ -109,19 +109,23 @@ export default function BulkGeneration() {
   useEffect(() => {
     let interval;
     if (batchId) {
+      // Poll every 4 seconds to prevent triggering Cloudflare/reverse proxy 429 rate limits
       interval = setInterval(async () => {
         try {
           const data = await safeFetchJson(`/api/jobs/${batchId}`);
-          setJobStatus(data);
-          
-          if (data?.completed) {
-            clearInterval(interval);
-            setStatus({ type: 'success', message: `Pipeline Complete! Dispatched ${data.sent} / ${data.total} certificates. Failed: ${data.failed}` });
+          if (data && typeof data === 'object' && 'total' in data) {
+            setJobStatus(data);
+            
+            if (data?.completed) {
+              clearInterval(interval);
+              setStatus({ type: 'success', message: `Pipeline Complete! Dispatched ${data.sent} / ${data.total} certificates. Failed: ${data.failed}` });
+            }
           }
         } catch (err) {
-          console.error('Job status polling error:', err);
+          // Ignore transient 429 rate limits or network glitches during polling
+          console.warn('Job status polling temporary glitch:', err.message || err);
         }
-      }, 2000);
+      }, 4000);
     }
     return () => clearInterval(interval);
   }, [batchId]);
