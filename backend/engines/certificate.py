@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import logging
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
@@ -20,13 +21,7 @@ def _get_cached_template(template_path: str) -> Image.Image:
             return cached_img.copy()
             
     with Image.open(template_path) as raw_img:
-        if raw_img.width > 2800:
-            target_w = 2800
-            target_h = int(raw_img.height * (2800 / raw_img.width))
-            img = raw_img.resize((target_w, target_h), Image.Resampling.LANCZOS).convert("RGB")
-        else:
-            img = raw_img.convert("RGB")
-            
+        img = raw_img.convert("RGB")
         _template_cache[template_path] = (mtime, img)
         return img.copy()
 
