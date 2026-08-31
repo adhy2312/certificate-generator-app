@@ -1,0 +1,55 @@
+Plan: Resolve Backend Network Errors in Frontend
+Problem Analysis
+When the frontend communicates with the backend, users encounter "Network error" due to several root causes:
+
+Unsafe Error Handling in Frontend: In BulkGeneration.jsx, Login.jsx, and SingleGeneration.jsx, fetch response errors or non-JSON responses (such as 502/504 Bad Gateway from Cloudflare/Render or CORS preflight failures) trigger generic catch blocks that display "Network error." or "Ensure backend is running." regardless of the actual cause.
+Reverse Proxy IP Collision in Backend Rate Limiting: In backend/main.py, rate limiting checks request.client.host. Behind Render/Cloudflare proxies, all users share the reverse proxy IP. After 5 attempts, the entire service locks out all users with HTTP 429.
+Missing CORS on FastAPI HTTPException Handler: While RequestValidationError and unhandled Exception had custom handlers with CORS headers, standard HTTPException (such as 401 Unauthorized or 429 Too Many Requests) used the default FastAPI handler which can lose CORS headers on certain browser preflights/crashes.
+Outdated Default Backend URL: backend/config.py had default PUBLIC_URL pointing to https://certificate-generator-app-dlh6.onrender.com (an inactive Render URL) instead of https://certificate-generator-app-v2.onrender.com.
+Render Cold-Start Latency: Render free tier sleeps after 15 minutes of inactivity. Initial requests take 30–60 seconds, which previously caused confusion and premature timeouts without user feedback.
+Local Development API URL Fallback: When running in production builds without an explicit environment file, or during local development, missing a robust dynamic fallback caused requests to fail.
+Proposed Changes
+1. Backend Improvements
+[MODIFY] 
+backend/config.py
+Update default PUBLIC_URL to https://certificate-generator-app-v2.onrender.com.
+[MODIFY] 
+backend/main.py
+Update check_rate_limit and get_client_ip to extract real client IP using cf-connecting-ip and x-forwarded-for headers.
+Add dedicated HTTPException handler that guarantees CORS headers (Access-Control-Allow-Origin: *, Access-Control-Allow-Methods: *, Access-Control-Allow-Headers: *) on all HTTP exception responses.
+2. Frontend Improvements
+[NEW] 
+frontend/src/api.js
+Create centralized API utility getApiBaseUrl():
+Dynamically determines base URL based on VITE_API_URL, local development vs. production environment.
+Add safeFetchJson() wrapper that:
+Handles text/HTML error responses gracefully without throwing SyntaxError.
+Distinguishes network failure, cold-start delay, 401 unauthorized, 429 rate limit, 502/503/504 server starting up.
+[MODIFY] 
+frontend/src/components/Login.jsx
+Use centralized API utility.
+Display cold-start indicator if authentication takes > 3 seconds ("Connecting to backend — waking up server...").
+Display exact backend error message (e.g. rate limit wait time or incorrect token) instead of generic "Network error".
+[MODIFY] 
+frontend/src/components/BulkGeneration.jsx
+Use centralized API utility for /api/parse-preview, /api/jobs/bulk, /api/jobs/{batchId}, and cancellation.
+Handle non-JSON server error responses properly.
+[MODIFY] 
+frontend/src/components/SingleGeneration.jsx
+Use centralized API utility for /api/jobs/single.
+Provide clear error reporting.
+[MODIFY] 
+frontend/src/App.jsx
+Use getApiBaseUrl() for QR code verification redirects.
+[MODIFY] 
+frontend/vite.config.js
+Add development proxy configuration to proxy /api requests to http://localhost:8000 when running npm run dev.
+Verification Plan
+Automated Tests & Server Validation
+Start backend server locally and test /health, /api/verify-password, and CORS headers.
+Verify rate-limiting real IP extraction with mock headers.
+Test production backend endpoint response: https://certificate-generator-app-v2.onrender.com/health and verify CORS headers.
+Run frontend build (npm run build in frontend/) to ensure no syntax/bundling errors.
+Manual Verification
+Test login flow with correct and incorrect credentials.
+Test single and bulk generation with error scenarios (e.g., malformed files) to ensure readable, accurate error messages.
