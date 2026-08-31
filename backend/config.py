@@ -1,7 +1,9 @@
 import os
 
 # Centralized Configuration & State
-GATEKEEPER_PASSWORD = os.getenv("GATEKEEPER_PASSWORD", "ISTE@2069")
+# GATEKEEPER_PASSWORD must be set as an env var in production (Render dashboard).
+# Defaults to empty string — admin routes return 401 until the env var is configured.
+GATEKEEPER_PASSWORD = os.getenv("GATEKEEPER_PASSWORD", "")
 
 # Directory Constants (absolute paths relative to backend directory)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

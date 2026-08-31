@@ -1,12 +1,11 @@
 import logging
+from database import SessionLocal
 from sqlalchemy.orm import Session
 from models import CertificateLog
 from engines.certificate import generate_pdf_from_svg
 from engines.mailer import send_certificate_email
 
 logger = logging.getLogger(__name__)
-
-from database import SessionLocal
 
 def process_batch(batch_id: str, send_email: bool = True):
     logger.info(f"Starting background worker for batch: {batch_id}")

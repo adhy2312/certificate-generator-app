@@ -42,9 +42,10 @@ jobs:
             sleep 10
           done
 
-          echo "❌ Backend did not respond after 3 attempts."
+          echo "Backend did not respond after 3 attempts."
           echo "status=down" >> $GITHUB_OUTPUT
-          exit 1   # Fail the job so GitHub marks it red — easy to spot in Actions tab
+          exit 0   # Exit cleanly — the GITHUB_STEP_SUMMARY below shows the failure clearly.
+                   # Using exit 1 causes GitHub to send email alerts on every transient blip.
 
       - name: Report status
         if: always()

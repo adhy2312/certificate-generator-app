@@ -2,13 +2,12 @@ fastapi
 uvicorn
 pandas
 openpyxl
-svglib
-reportlab
 python-multipart
 sqlalchemy
-qrcode
+qrcode[pil]
 jinja2
 psycopg2-binary
 gunicorn
 Pillow
 requests
+numpy

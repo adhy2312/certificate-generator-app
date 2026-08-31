@@ -21,31 +21,18 @@ services:
         sync: false
 
   # ---------------------------------------------------------------------------
-  # Keep-Alive Cron Job
-  # Pings the /health endpoint every 14 minutes so Render's free-tier web
-  # service never spins down due to inactivity (Render sleeps after 15 min).
+  # NOTE: Keepalive cron is intentionally NOT defined here.
+  # GitHub Actions (.github/workflows/keepalive.yml) handles keep-alive pings
+  # every 10 minutes with retry logic and failure reporting — far more reliable
+  # than a Render cron service which itself sleeps and causes a cold-start loop.
   # ---------------------------------------------------------------------------
-  - type: cron
-    name: iste-cert-hub-keepalive
-    env: python
-    schedule: "*/10 * * * *"
-    buildCommand: "pip install requests"
-    startCommand: >
-      python -c "
-      import requests, os, sys;
-      url = os.getenv('PING_URL', 'https://certificate-generator-app-v2.onrender.com/health');
-      r = requests.get(url, timeout=30);
-      print(f'Ping {url} -> {r.status_code}');
-      sys.exit(0 if r.ok else 1)
-      "
-    envVars:
-      - key: PING_URL
-        value: https://certificate-generator-app-v2.onrender.com/health
 
   # ---------------------------------------------------------------------------
   # Daily DB Cleanup Cron Job
   # Calls the /api/admin/cleanup endpoint every day at 2 AM UTC to prune old
   # certificate logs when Supabase storage approaches the 500 MB free limit.
+  # NOTE: GATEKEEPER_PASSWORD must be explicitly set here — Render cron jobs
+  # do NOT inherit env vars from the web service automatically.
   # ---------------------------------------------------------------------------
   - type: cron
     name: iste-cert-hub-db-cleanup
@@ -57,6 +44,9 @@ services:
       import requests, os, sys, json;
       url = os.getenv('BACKEND_URL', 'https://certificate-generator-app-v2.onrender.com') + '/api/admin/cleanup?force=false';
       password = os.getenv('GATEKEEPER_PASSWORD');
+      if not password:
+          print('ERROR: GATEKEEPER_PASSWORD env var is not set on this cron job. Set it in Render dashboard.');
+          sys.exit(1);
       r = requests.post(url, json={'password': password}, timeout=60);
       print(json.dumps(r.json(), indent=2));
       sys.exit(0 if r.ok else 1)
