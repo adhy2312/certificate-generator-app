@@ -47,7 +47,7 @@ def send_certificate_email(to_email: str, name: str, pdf_path: str, event: str =
                 "attachment_base64": encoded_pdf,
                 "filename": attachment_filename
             }
-            resp = requests.post(config.GAS_MAILER_URL, json=payload, timeout=90)
+            resp = requests.post(config.GAS_MAILER_URL, json=payload, timeout=10)
             
             try:
                 resp_json = resp.json()

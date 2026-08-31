@@ -50,31 +50,33 @@ def process_batch(batch_id: str, send_email: bool = True):
                 )
                 
                 if pdf_path:
+                    record.status = "SENT"
+                    db.commit()
+                    logger.info(f"Successfully generated PDF for {record.name}. Marked status as SENT.")
+
                     if send_email:
-                        success, err_msg = send_certificate_email(
-                            to_email=record.email,
-                            name=record.name,
-                            pdf_path=pdf_path,
-                            event=record.event,
-                            tier=record.tier,
-                            cert_id=record.cert_id,
-                            cert_type=record.cert_type
-                        )
-                        if success:
-                            record.status = "SENT"
-                        else:
-                            logger.warning(f"Email delivery failed for {record.email} ({err_msg}), but PDF was generated successfully.")
-                            record.status = "SENT" # PDF generated successfully for ZIP download
-                    else:
-                        record.status = "SENT" # Generated successfully
+                        try:
+                            success, err_msg = send_certificate_email(
+                                to_email=record.email,
+                                name=record.name,
+                                pdf_path=pdf_path,
+                                event=record.event,
+                                tier=record.tier,
+                                cert_id=record.cert_id,
+                                cert_type=record.cert_type
+                            )
+                            if not success:
+                                logger.warning(f"Email dispatch warning for {record.email}: {err_msg}")
+                        except Exception as mail_err:
+                            logger.warning(f"Email dispatch exception for {record.email}: {mail_err}")
                 else:
                     record.status = "FAILED"
+                    db.commit()
                     
             except Exception as e:
                 logger.error(f"Error processing {record.name}: {e}")
                 record.status = "FAILED"
-                
-            db.commit()
+                db.commit()
     finally:
         db.close()
     
