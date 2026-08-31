@@ -463,7 +463,10 @@ async def get_job_status(batch_id: str, db: Session = Depends(get_db)):
 
     total = db.query(CertificateLog).filter(CertificateLog.batch_id == batch_id).count()
     if total == 0:
-        raise HTTPException(status_code=404, detail="Batch not found")
+        db.expire_all()
+        total = db.query(CertificateLog).filter(CertificateLog.batch_id == batch_id).count()
+        if total == 0:
+            raise HTTPException(status_code=404, detail="Batch not found")
 
     sent = db.query(CertificateLog).filter(
         CertificateLog.batch_id == batch_id, CertificateLog.status == "SENT"

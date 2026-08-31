@@ -3,7 +3,7 @@ services:
     name: iste-cert-hub-backend
     env: python
     buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --loop asyncio --timeout-keep-alive 75"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --loop asyncio --timeout-keep-alive 75"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
