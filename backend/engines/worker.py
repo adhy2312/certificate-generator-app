@@ -1,4 +1,6 @@
 import logging
+import time
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from models import CertificateLog
 from engines.certificate import generate_pdf_from_svg
@@ -14,7 +16,20 @@ def process_batch(batch_id: str, send_email: bool = True):
     # Create an independent database session for this long-running background task
     db = SessionLocal()
     try:
-        records = db.query(CertificateLog).filter(CertificateLog.batch_id == batch_id, CertificateLog.status == "PENDING").all()
+        # Give DB transaction a brief moment to settle across thread boundaries
+        records = db.query(CertificateLog).filter(
+            CertificateLog.batch_id == batch_id,
+            or_(CertificateLog.status == "PENDING", CertificateLog.status == None)
+        ).all()
+        
+        if not records:
+            time.sleep(1)
+            records = db.query(CertificateLog).filter(
+                CertificateLog.batch_id == batch_id,
+                or_(CertificateLog.status == "PENDING", CertificateLog.status == None)
+            ).all()
+            
+        logger.info(f"Batch {batch_id}: found {len(records)} pending record(s) to process.")
         
         for record in records:
             try:

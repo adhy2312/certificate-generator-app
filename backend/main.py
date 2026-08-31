@@ -442,7 +442,8 @@ async def process_bulk(
             event=req.event,
             tier=tier,
             date=req.date,
-            cert_type=rec_type
+            cert_type=rec_type,
+            status="PENDING"
         )
         db.add(cert_log)
 
