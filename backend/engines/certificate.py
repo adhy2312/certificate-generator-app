@@ -127,16 +127,10 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
         draw.text((event_x, event_y), event_name, fill="#333333", font=font_medium, anchor="mm")
         
         # Print Prize if it's a Merit certificate
-        logger.debug(f"cert_type: '{cert_type}'")
-        
         if cert_type.startswith("Certificate of Merit"):
             prize_text = cert_type.split("-", 1)[1].strip() if "-" in cert_type else "1st Prize"
             prize_x = width * coords.get("prize_x", config.COORD_X)
             prize_y = height * coords.get("prize_y", 0.54)
-            
-            logger.debug(f"Drawing prize: '{prize_text}' at ({prize_x}, {prize_y})")
-                
-            # Drawing prize compactly to avoid overflowing over the surrounding text
             draw.text((prize_x, prize_y), prize_text, fill="black", font=font_medium, anchor="mm")
         
         display_date = cert_date if cert_date else date.today().strftime('%B %d, %Y')
@@ -170,7 +164,9 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
         output_filename = os.path.join(config.OUTPUT_DIR, f"{safe_name}_{cert_id or 'cert'}.pdf")
         
         # Save directly to PDF
+        ts_save = time.time()
         img.save(output_filename, "PDF", resolution=100.0)
+        logger.debug(f"Image saved to PDF in {time.time() - ts_save:.2f}s: {output_filename}")
 
         # Explicitly free memory of PIL image
         img.close()

@@ -31,7 +31,7 @@ def process_batch(batch_id: str, send_email: bool = True):
             
         logger.info(f"Batch {batch_id}: found {len(records)} pending record(s) to process.")
         
-        for record in records:
+        for idx, record in enumerate(records, 1):
             try:
                 # Refresh record to check for mid-way cancellation
                 db.refresh(record)
@@ -39,7 +39,8 @@ def process_batch(batch_id: str, send_email: bool = True):
                     logger.info(f"Batch {batch_id} was cancelled. Stopping.")
                     break # Abort the batch processing loop
                 
-                logger.info(f"Processing background record: {record.name}")
+                logger.info(f"[{idx}/{len(records)}] Starting processing for: {record.name}")
+                t0 = time.time()
                 pdf_path = generate_pdf_from_svg(
                     name=record.name,
                     event_name=record.event,
@@ -48,14 +49,17 @@ def process_batch(batch_id: str, send_email: bool = True):
                     cert_id=record.cert_id,
                     cert_type=record.cert_type
                 )
+                t1 = time.time()
+                logger.info(f"[{idx}/{len(records)}] PDF generation for '{record.name}' completed in {t1-t0:.2f}s (path: {pdf_path})")
                 
                 if pdf_path:
                     record.status = "SENT"
                     db.commit()
-                    logger.info(f"Successfully generated PDF for {record.name}. Marked status as SENT.")
+                    logger.info(f"[{idx}/{len(records)}] Database record for '{record.name}' updated to SENT and committed.")
 
                     if send_email:
                         try:
+                            tm0 = time.time()
                             success, err_msg = send_certificate_email(
                                 to_email=record.email,
                                 name=record.name,
@@ -65,18 +69,24 @@ def process_batch(batch_id: str, send_email: bool = True):
                                 cert_id=record.cert_id,
                                 cert_type=record.cert_type
                             )
-                            if not success:
-                                logger.warning(f"Email dispatch warning for {record.email}: {err_msg}")
+                            tm1 = time.time()
+                            if success:
+                                logger.info(f"[{idx}/{len(records)}] Email sent to {record.email} in {tm1-tm0:.2f}s")
+                            else:
+                                logger.warning(f"[{idx}/{len(records)}] Email dispatch warning for {record.email} ({tm1-tm0:.2f}s): {err_msg}")
                         except Exception as mail_err:
-                            logger.warning(f"Email dispatch exception for {record.email}: {mail_err}")
+                            logger.warning(f"[{idx}/{len(records)}] Email dispatch exception for {record.email}: {mail_err}")
                 else:
                     record.status = "FAILED"
                     db.commit()
+                    logger.error(f"[{idx}/{len(records)}] PDF generation failed for {record.name}. Marked status as FAILED.")
                     
             except Exception as e:
-                logger.error(f"Error processing {record.name}: {e}")
+                logger.error(f"[{idx}/{len(records)}] Error processing {record.name}: {e}")
                 record.status = "FAILED"
                 db.commit()
+        
+        logger.info(f"Batch {batch_id} processing complete!")
     finally:
         db.close()
     
