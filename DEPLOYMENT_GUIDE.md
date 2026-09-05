@@ -48,13 +48,12 @@ git push origin main
 ---
 
 ### Step 3: Add Environment Variables in Render
-In the **Environment Variables** section on Render, add the following 4 keys:
+In the **Environment Variables** section on Render, add the following keys:
 
 | Key | Example Value | Description |
 | :--- | :--- | :--- |
 | `GATEKEEPER_PASSWORD` | `YourSecretPassword123` | Password to access the admin portal / cancel batches |
 | `GAS_MAILER_URL` | `https://script.google.com/macros/s/.../exec` | Your Google Apps Script Web App URL |
-| `PUBLIC_URL` | `https://iste-cert-hub-backend-v2.onrender.com` | The public URL of this Render web service (for QR codes) |
 | `DATABASE_URL` | `sqlite:///./certops.db` | Default SQLite database path |
 
 *(Note: If you ever want to use Gmail SMTP instead of GAS, set `SENDER_EMAIL` and `SENDER_PASS` [16-character App Password] instead of `GAS_MAILER_URL`)*.
@@ -154,6 +153,5 @@ If you want to run everything locally on your machine:
 - [ ] Backend health check responds `200 OK` at `/health`.
 - [ ] Login screen accepts the `GATEKEEPER_PASSWORD` set on Render.
 - [ ] Single certificate generation with "Download PDF Only" downloads valid PDF.
-- [ ] QR code on the certificate scans and routes to `/verify/<cert_id>` verification ledger.
 - [ ] Single certificate generation with "Generate & Email" delivers PDF to inbox.
 - [ ] Bulk pipeline spreadsheet parsing and batch processing works without errors.

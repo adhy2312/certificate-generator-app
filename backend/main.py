@@ -15,7 +15,6 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, validator, EmailStr
 from typing import List, Optional
-import html as html_module
 
 import config
 from engines.parser import process_source
@@ -272,14 +271,6 @@ class BulkProcessRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Helper: escape user-provided data before injecting into HTML
-# ---------------------------------------------------------------------------
-def esc(value: str) -> str:
-    """HTML-escape a string to prevent XSS in the verify portal."""
-    return html_module.escape(str(value or ""))
-
-
-# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -511,119 +502,6 @@ async def cancel_job(batch_id: str, req: PasswordRequest, request: Request, db: 
     
     db.commit()
     return {"success": True, "message": "Batch processing cancelled."}
-
-
-@app.get("/verify/{cert_id}", response_class=HTMLResponse)
-async def verify_certificate(cert_id: str, db: Session = Depends(get_db)):
-    # Validate cert_id is UUID-shaped to prevent arbitrary DB scanning
-    try:
-        uuid.UUID(cert_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid certificate ID")
-
-    cert = db.query(CertificateLog).filter(CertificateLog.cert_id == cert_id).first()
-    if not cert:
-        return HTMLResponse(content="""
-        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Invalid Certificate - ISTE MBCET</title>
-        <style>
-        body{font-family:'Space Grotesk',sans-serif,system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f4f4f0;color:#1a1a1a;}
-        .box{background:#fff;padding:40px;border:4px solid #1a1a1a;border-radius:16px;box-shadow:8px 8px 0 #1a1a1a;text-align:center;max-width:400px;width:90%;}
-        h1{font-size:22px;margin:0 0 12px 0;} p{color:#666;font-size:14px;margin:0;}
-        </style>
-        </head><body><div class="box"><h1>⚠️ Invalid Certificate</h1>
-        <p>This certificate ID was not found in the ISTE MBCET verification ledger.</p></div></body></html>
-        """, status_code=200)
-
-    # XSS-safe: escape every database value before injecting into HTML
-    safe_cert_type = esc(cert.cert_type)
-    safe_name = esc(cert.name)
-    safe_event = esc(cert.event)
-    safe_tier = esc(cert.tier)
-    safe_date = esc(cert.date or cert.created_at.strftime('%B %d, %Y'))
-    safe_cert_id = esc(cert.cert_id)
-
-    return f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verify Certificate - ISTE MBCET</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
-        <style>
-            body {{
-                margin: 0; padding: 0; min-height: 100vh;
-                background-color: #f4f4f0;
-                font-family: 'Space Grotesk', sans-serif;
-                display: flex; align-items: center; justify-content: center; color: #1a1a1a;
-            }}
-            .container {{
-                background: #ffffff; padding: 40px;
-                border: 4px solid #1a1a1a; border-radius: 16px;
-                box-shadow: 8px 8px 0px #1a1a1a;
-                max-width: 500px; width: 90%; text-align: left;
-            }}
-            .badge {{
-                display: inline-block; background: #4ade80; color: #064e3b;
-                padding: 8px 16px; border: 2px solid #064e3b; border-radius: 99px;
-                font-weight: 700; font-size: 14px; margin-bottom: 24px;
-                text-transform: uppercase; letter-spacing: 1px;
-            }}
-            h1 {{ font-size: 28px; font-weight: 700; margin: 0 0 8px 0; letter-spacing: -1px; }}
-            p.subtitle {{ color: #666; margin: 0 0 32px 0; font-size: 15px; }}
-            .detail-group {{
-                margin-bottom: 20px; padding-bottom: 20px;
-                border-bottom: 2px dashed #e5e5e5;
-            }}
-            .detail-group:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
-            .label {{
-                font-size: 12px; text-transform: uppercase; color: #666;
-                font-weight: 700; letter-spacing: 1px; margin-bottom: 4px;
-            }}
-            .value {{ font-size: 18px; font-weight: 700; color: #1a1a1a; }}
-            .footer {{ margin-top: 40px; text-align: center; font-size: 13px; color: #666; font-weight: 700; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="badge">✔ Authentic</div>
-            <h1>{safe_cert_type}</h1>
-            <p class="subtitle">This official document has been verified in the ISTE MBCET ledger.</p>
-
-            <div class="detail-group">
-                <div class="label">Issued To</div>
-                <div class="value">{safe_name}</div>
-            </div>
-
-            <div class="detail-group">
-                <div class="label">Event / Achievement</div>
-                <div class="value">{safe_event}</div>
-            </div>
-
-            <div class="detail-group">
-                <div class="label">Role / Tier</div>
-                <div class="value">{safe_tier}</div>
-            </div>
-
-            <div class="detail-group">
-                <div class="label">Date of Issue</div>
-                <div class="value">{safe_date}</div>
-            </div>
-
-            <div class="detail-group">
-                <div class="label">Ledger ID</div>
-                <div class="value" style="font-family: monospace; font-size: 14px;">{safe_cert_id}</div>
-            </div>
-
-            <div class="footer">ISTE MBCET Student Chapter</div>
-        </div>
-    </body>
-    </html>
-    """
 
 
 @app.get("/api/jobs/{batch_id}/download")

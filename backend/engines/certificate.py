@@ -2,7 +2,6 @@ import os
 import re
 import time
 import logging
-import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import config
 from datetime import date
@@ -130,29 +129,6 @@ def generate_pdf_from_svg(name: str, event_name: str, role: str, cert_date: str 
         
         display_date = cert_date if cert_date else date.today().strftime('%B %d, %Y')
         draw.text((date_x, date_y), display_date, fill="#555555", font=font_medium, anchor="mm")
-        
-        # Generate and Stamp QR Code
-        if cert_id:
-            qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=20, border=2)
-            qr.add_data(f"{config.PUBLIC_URL}/verify/{cert_id}")
-            qr.make(fit=True)
-            qr_img = qr.make_image(fill_color="#0c2340", back_color="white").convert("RGB")
-            
-            # Resize QR code to fit roughly 8% of the certificate width
-            qr_size = int(width * 0.08)
-            qr_img_resized = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
-            
-            qr_x = int(width * config.QR_X) - (qr_size // 2)
-            qr_y = int(height * coords["qr_y"]) - (qr_size // 2)
-            
-            # Paste QR code onto main image
-            img.paste(qr_img_resized, (qr_x, qr_y))
-            
-            qr_img_resized.close()
-            try:
-                qr_img.close()
-            except AttributeError:
-                pass
 
         # Sanitize filename cleanly
         safe_name = re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")

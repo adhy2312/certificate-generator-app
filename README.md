@@ -37,16 +37,15 @@ Whether generating a single certificate for a VIP speaker or dispatching 500+ ce
 - **Intelligent Ingestion Engine:** Automatically cleans messy data, converts names to Title Case, strips invalid emails, dynamically maps columns using fuzzy matching, and deduplicates entries to prevent email spam.
 
 ### 🎨 State-of-the-Art Rendering
-- **SVG-to-PDF Conversion:** Ingests raw SVG templates and dynamically injects participant names, event titles, and roles using native XML manipulation.
-- **Dynamic QR Codes:** Every certificate receives a uniquely generated, tamper-proof QR code physically stamped onto the PDF canvas (using `ReportLab`). 
+- **Pillow / PDF Rendering:** Ingests high-resolution certificate templates and cleanly stamps recipient names, event titles, prizes, and dates using bundled typography.
+- **Precision Formatting:** Dynamic centering, Title Case normalization, and high-fidelity output.
 
-### 🔐 Cryptographic Ledger & Verification
-- **Immutable Database:** Every generated certificate logs a unique UUID in a persistent PostgreSQL ledger.
-- **QR Code Verification Portal:** Scanning the physical QR code on the certificate instantly routes to a public, mobile-friendly Verification Portal confirming the document's authenticity and issuing details.
+### 🔐 Issuance Ledger
+- **Relational Database:** Every generated certificate logs a unique UUID in a persistent ledger for tracking and batch archiving.
 
 ### ✉️ Asynchronous Email Dispatch
-- Integrated with the **Resend API** for rapid, scalable, and high-deliverability email dispatch.
-- Beautiful, fully responsive HTML email templates with the PDF attached perfectly intact.
+- Integrated with **Google Apps Script Mailer** and **Gmail SMTP** for rapid, scalable, and reliable email dispatch.
+- Beautiful, fully responsive HTML email templates with the PDF attached directly.
 - Features mid-way pipeline termination and background failure logging so a single bad email never breaks a batch.
 
 <br />

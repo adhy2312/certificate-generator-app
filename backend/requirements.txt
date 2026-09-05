@@ -4,7 +4,6 @@ pandas
 openpyxl
 python-multipart
 sqlalchemy
-qrcode[pil]
 jinja2
 psycopg2-binary
 gunicorn
