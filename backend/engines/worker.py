@@ -54,8 +54,8 @@ def process_batch(batch_id: str, send_email: bool = True):
             if total_records == 0:
                 return
 
-            # Prepare reusable SMTP session if direct SMTP is needed
-            use_smtp_manager = send_email and not config.GAS_MAILER_URL and config.SENDER_EMAIL and config.SENDER_PASS
+            # Prepare reusable SMTP session if direct SMTP credentials are provided (for primary dispatch or seamless fallback)
+            use_smtp_manager = send_email and bool(config.SENDER_EMAIL and config.SENDER_PASS)
             smtp_mgr = SMTPConnectionManager() if use_smtp_manager else None
 
             try:
@@ -134,14 +134,22 @@ def process_batch(batch_id: str, send_email: bool = True):
 
                                 # Quota & Auth Circuit Breakers
                                 lower_err = str(err_msg).lower()
-                                if any(k in lower_err for k in ["daily sending limit", "quota exceeded", "user sending limit", "550 5.4.5", "452 4.5.3"]):
-                                    logger.critical("Daily email quota reached! Tripping circuit breaker to protect sender account.")
+                                if any(k in lower_err for k in [
+                                    "daily sending limit",
+                                    "quota exceeded",
+                                    "user sending limit",
+                                    "too many times for one day",
+                                    "service invoked too many times",
+                                    "550 5.4.5",
+                                    "452 4.5.3"
+                                ]):
+                                    logger.critical("Daily email quota reached across email dispatchers! Tripping circuit breaker.")
                                     db.query(CertificateLog).filter(
                                         CertificateLog.batch_id == batch_id,
                                         CertificateLog.status == "PENDING"
                                     ).update({
                                         CertificateLog.status: "FAILED",
-                                        CertificateLog.error_message: "Daily email quota reached (Gmail limit). Batch paused to protect account from suspension. Use 'Retry Failed' tomorrow or switch to GAS Proxy."
+                                        CertificateLog.error_message: "Daily email quota reached (Google limit). Stopped to protect sender account. Configure SENDER_EMAIL & SENDER_PASS (App Password) for 500-2000/day, or use college Google Workspace."
                                     })
                                     db.commit()
                                     break

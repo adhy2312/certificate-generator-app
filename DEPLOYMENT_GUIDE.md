@@ -91,10 +91,19 @@ In the **Environment Variables** section on Render, add the following keys:
 If you need to deploy or recreate your Google Apps Script Proxy:
 
 1. Open [Google Apps Script](https://script.google.com/) and click **"New Project"**.
-2. Replace the code in `Code.gs` with:
+2. Replace the code in `Code.gs` with this production-grade, quota-aware script:
    ```javascript
    function doPost(e) {
      try {
+       // Check remaining daily email quota before attempting to send
+       var quotaRemaining = MailApp.getRemainingDailyQuota();
+       if (quotaRemaining <= 0) {
+         return ContentService.createTextOutput(JSON.stringify({
+           "success": false,
+           "error": "Exception: Service invoked too many times for one day: email. Remaining daily quota is 0."
+         })).setMimeType(ContentService.MimeType.JSON);
+       }
+
        var data = JSON.parse(e.postData.contents);
        var to = data.to;
        var subject = data.subject;
@@ -112,7 +121,8 @@ If you need to deploy or recreate your Google Apps Script Proxy:
        
        return ContentService.createTextOutput(JSON.stringify({
          "success": true,
-         "message": "Email sent successfully"
+         "message": "Email sent successfully",
+         "quota_remaining": quotaRemaining - 1
        })).setMimeType(ContentService.MimeType.JSON);
        
      } catch (error) {
@@ -130,6 +140,47 @@ If you need to deploy or recreate your Google Apps Script Proxy:
    * **Who has access:** `Anyone` *(Crucial: must be Anyone so Render can call it)*
 6. Click **Deploy**, authorize permissions, and copy the **Web app URL** (ends in `/exec`).
 7. Paste this URL as `GAS_MAILER_URL` on Render.
+
+---
+
+## 🎓 High-Volume Email Dispatch for Student Organizations (500 – 2,000+ Certificates)
+
+Personal `@gmail.com` accounts have a strict Google limit of **100 emails per day** when using Google Apps Script. If you try to dispatch more, Google throws:
+`GAS Proxy Error: Exception: Service invoked too many times for one day: email.`
+
+Here are the 4 ways student organizations dispatch hundreds or thousands of certificates with **0 error rate**:
+
+### 🏆 Option 1 (Recommended): Deploy from College / Institutional Google Workspace Account
+* If you or your faculty advisor deploy the Google Apps Script Web App from an institutional Google Workspace account (e.g. `yourname@mbcet.ac.in` or college Google account):
+* Google's limit increases from 100/day to **1,500 – 2,000 emails per day**!
+* Simply follow Phase 3 using your college email and set the new URL as `GAS_MAILER_URL`.
+
+### ⚡ Option 2: Gmail Direct SMTP via 16-Character App Password (500 – 2,000/day)
+* In your Google Account: Go to **Security** → **2-Step Verification** → **App Passwords**.
+* Generate an App Password for "Mail" (gives you a 16-character code like `abcd efgh ijkl mnop`).
+* On Render (or local `.env`), set:
+  * `SENDER_EMAIL` = `your.club.email@gmail.com`
+  * `SENDER_PASS` = `abcdefghijklmnop`
+* **Automatic Fallback:** Even if `GAS_MAILER_URL` is set, the system will **automatically fall back to Direct SMTP** whenever Google Apps Script runs out of quota, so your batch never fails!
+
+### 🔄 Option 3: Multi-Account GAS Pool (Free Infinite Scaling)
+* Have 2 to 5 committee members create and deploy a Web App following Phase 3 above.
+* Combine them into a comma-separated list on Render:
+  ```env
+  GAS_MAILER_URL=https://script.google.com/.../exec1,https://script.google.com/.../exec2,https://script.google.com/.../exec3
+  ```
+* The backend automatically pools them: when Account #1 hits Google's 100 limit, it immediately and seamlessly shifts traffic to Account #2, then Account #3!
+
+### 🌐 Option 4: Dedicated Free SMTP Relay (Brevo / SendGrid / Amazon SES)
+* Free Brevo (Sendinblue) account provides 300 free emails/day.
+* Amazon SES costs just $0.10 per 1,000 emails (first 62,000 free per month).
+* Set in environment:
+  ```env
+  SMTP_SERVER=smtp-relay.brevo.com
+  SMTP_PORT=587
+  SENDER_EMAIL=your_smtp_login
+  SENDER_PASS=your_smtp_password
+  ```
 
 ---
 

@@ -135,6 +135,15 @@ class SMTPConnectionManager:
         self.close()
 
 
+# In-memory tracking of exhausted GAS Web App endpoints for the current runtime session
+_EXHAUSTED_GAS_URLS = set()
+
+def reset_exhausted_gas_urls():
+    """Resets the exhausted URL cache."""
+    global _EXHAUSTED_GAS_URLS
+    _EXHAUSTED_GAS_URLS.clear()
+
+
 def send_certificate_email(
     to_email: str,
     name: str,
@@ -146,9 +155,11 @@ def send_certificate_email(
     smtp_manager: SMTPConnectionManager = None
 ) -> tuple[bool, str]:
     """
-    Sends certificate PDF to recipient via Google Apps Script Proxy or direct SMTP.
-    If smtp_manager is provided, reuses the active SMTP connection for speed & reliability.
-    Includes full sanitization against MIME header injection.
+    Sends certificate PDF to recipient with enterprise-grade resilience:
+      1. Tries Google Apps Script Proxy (supports comma-separated pool of multiple GAS URLs).
+      2. If a GAS URL hits Google's 100/day limit ('Service invoked too many times'), it cycles to the next URL.
+      3. If all GAS endpoints are exhausted, it AUTOMATICALLY falls back to Direct SMTP seamlessly.
+      4. If both fail, it provides an actionable error message with exact remediation steps.
     """
     try:
         if cert_type == "CERT_Template":
@@ -178,56 +189,102 @@ def send_certificate_email(
         with open(pdf_path, 'rb') as f:
             pdf_data = f.read()
 
-        # Route 1: Google Apps Script Proxy (if configured)
+        last_gas_err = None
+        gas_attempted = False
+
+        # Route 1: Google Apps Script Proxy Pool (if configured)
         if config.GAS_MAILER_URL:
-            logger.info("Using Google Apps Script Proxy for dispatch...")
-            encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
-            payload = {
-                "to": to_email,
-                "subject": subject,
-                "html": html_body,
-                "attachment_base64": encoded_pdf,
-                "filename": attachment_filename
-            }
-            try:
-                resp = requests.post(config.GAS_MAILER_URL, json=payload, timeout=30)
-                try:
-                    resp_json = resp.json()
-                    if resp.status_code == 200 and resp_json.get('success'):
-                        logger.info(f"Email dispatched successfully to {to_email} via GAS Proxy")
-                        return True, "Success"
-                    else:
-                        err_detail = resp_json.get('error', resp.text)
-                        logger.error(f"GAS Proxy Error: {err_detail}")
-                        return False, f"GAS Proxy Error: {err_detail}"
-                except ValueError:
-                    if "Access Denied" in resp.text or "accounts.google.com" in resp.text:
-                        err_msg = "Google Apps Script Error: Access Denied. Ensure Web App is deployed with 'Who has access: Anyone'."
-                    else:
-                        snippet = resp.text.strip()[:160].replace('\n', ' ')
-                        err_msg = f"Google Apps Script Error (non-JSON): {snippet}"
-                    logger.error(err_msg)
-                    return False, err_msg
-            except requests.Timeout:
-                return False, "Google Apps Script timed out after 30 seconds."
-            except Exception as gas_err:
-                return False, f"GAS Proxy Request Failed: {gas_err}"
+            # Parse comma-separated or single GAS URLs
+            all_gas_urls = [u.strip() for u in config.GAS_MAILER_URL.split(",") if u.strip()]
+            active_gas_urls = [u for u in all_gas_urls if u not in _EXHAUSTED_GAS_URLS]
 
-        # Route 2: Direct SMTP
-        msg = EmailMessage()
-        msg['Subject'] = subject
-        msg['From'] = f"ISTE MBCET <{config.SENDER_EMAIL}>"
-        msg['To'] = to_email
-        msg.set_content("Please enable HTML to view this email.")
-        msg.add_alternative(html_body, subtype='html')
-        msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=attachment_filename)
+            if active_gas_urls:
+                gas_attempted = True
+                encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
+                payload = {
+                    "to": to_email,
+                    "subject": subject,
+                    "html": html_body,
+                    "attachment_base64": encoded_pdf,
+                    "filename": attachment_filename
+                }
 
-        if smtp_manager:
-            return smtp_manager.send_message(msg)
+                for gas_url in active_gas_urls:
+                    try:
+                        logger.info(f"Attempting dispatch via GAS Proxy ({gas_url[:35]}...)...")
+                        resp = requests.post(gas_url, json=payload, timeout=30)
+                        try:
+                            resp_json = resp.json()
+                            if resp.status_code == 200 and resp_json.get('success'):
+                                logger.info(f"Email dispatched successfully to {to_email} via GAS Proxy")
+                                return True, "Success"
+                            else:
+                                err_detail = resp_json.get('error', resp.text)
+                                last_gas_err = err_detail
+                                logger.warning(f"GAS Proxy Error from {gas_url[:35]}...: {err_detail}")
 
-        # Standalone single-send connection
-        with SMTPConnectionManager(timeout=20, delay_between_sends=0) as manager:
-            return manager.send_message(msg)
+                                # Detect Google Apps Script daily quota limit
+                                if any(k in str(err_detail).lower() for k in [
+                                    "too many times for one day",
+                                    "service invoked too many times",
+                                    "quota",
+                                    "limit exceeded"
+                                ]):
+                                    _EXHAUSTED_GAS_URLS.add(gas_url)
+                                    logger.warning(f"GAS endpoint {gas_url[:35]}... reached daily quota. Failing over...")
+                                    continue
+                                else:
+                                    # Non-quota error, still try fallback
+                                    break
+                        except ValueError:
+                            if "Access Denied" in resp.text or "accounts.google.com" in resp.text:
+                                last_gas_err = "Google Apps Script Error: Access Denied. Ensure Web App is deployed with 'Who has access: Anyone'."
+                            else:
+                                snippet = resp.text.strip()[:160].replace('\n', ' ')
+                                last_gas_err = f"Google Apps Script Error (non-JSON): {snippet}"
+                            logger.error(last_gas_err)
+                    except requests.Timeout:
+                        last_gas_err = "Google Apps Script timed out after 30 seconds."
+                        logger.warning(last_gas_err)
+                    except Exception as gas_err:
+                        last_gas_err = f"GAS Proxy Request Failed: {gas_err}"
+                        logger.warning(last_gas_err)
+            else:
+                last_gas_err = "All configured Google Apps Script Web App accounts have exhausted their daily quota."
+                logger.warning(last_gas_err)
+
+        # Route 2: Direct SMTP (used as primary if no GAS, or automatic fallback if GAS hit quota/failed)
+        can_use_smtp = bool(config.SENDER_EMAIL and config.SENDER_PASS)
+        if can_use_smtp:
+            if gas_attempted:
+                logger.info(f"GAS dispatch exhausted or failed ({last_gas_err}). Seamlessly failing over to Direct SMTP...")
+
+            msg = EmailMessage()
+            msg['Subject'] = subject
+            msg['From'] = f"ISTE MBCET <{config.SENDER_EMAIL}>"
+            msg['To'] = to_email
+            msg.set_content("Please enable HTML to view this email.")
+            msg.add_alternative(html_body, subtype='html')
+            msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=attachment_filename)
+
+            if smtp_manager:
+                return smtp_manager.send_message(msg)
+
+            # Standalone single-send connection
+            with SMTPConnectionManager(timeout=20, delay_between_sends=0) as manager:
+                return manager.send_message(msg)
+
+        # If we reached here, both GAS failed (or wasn't configured) and SMTP is not configured
+        if last_gas_err:
+            if "too many times for one day" in str(last_gas_err).lower() or "quota" in str(last_gas_err).lower():
+                return False, (
+                    f"Google Apps Script daily email quota exceeded: {last_gas_err}. "
+                    "Solution: Configure SENDER_EMAIL & SENDER_PASS (App Password) on Render (500-2000/day limit), "
+                    "or deploy GAS with a college Google Workspace account, or add backup comma-separated GAS_MAILER_URLs."
+                )
+            return False, f"GAS Proxy Error: {last_gas_err}"
+
+        return False, "No email provider configured. Please configure SENDER_EMAIL & SENDER_PASS or GAS_MAILER_URL."
 
     except Exception as e:
         logger.error(f"Unexpected error in send_certificate_email for {to_email}: {e}")
