@@ -112,15 +112,24 @@ async def lifespan(app: FastAPI):
     # Initialize Database tables
     Base.metadata.create_all(bind=engine)
 
-    # Safely migrate existing databases to include the new cert_type column
+    # Safely migrate existing databases to include cert_type, error_message, updated_at
     try:
         from sqlalchemy import text
         with engine.begin() as conn:
-            conn.execute(text(
-                "ALTER TABLE certificate_logs ADD COLUMN cert_type VARCHAR DEFAULT 'Certificate of Participation'"
-            ))
+            try:
+                conn.execute(text("ALTER TABLE certificate_logs ADD COLUMN cert_type VARCHAR DEFAULT 'Certificate of Participation'"))
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE certificate_logs ADD COLUMN error_message VARCHAR"))
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE certificate_logs ADD COLUMN updated_at TIMESTAMP"))
+            except Exception:
+                pass
     except Exception:
-        pass  # Column already exists
+        pass
 
     # Start auto-cleanup background tasks
     pdf_task = asyncio.create_task(cleanup_pdfs_loop())
@@ -259,8 +268,8 @@ class BulkProcessRequest(BaseModel):
 
     @validator("records")
     def limit_records(cls, v):
-        if len(v) > 500:
-            raise ValueError("Bulk jobs are limited to 500 records per batch")
+        if len(v) > 5000:
+            raise ValueError("Bulk jobs are limited to 5000 records per batch")
         return v
 
     @validator("event", "cert_type")
@@ -370,18 +379,20 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
     db.refresh(cert_log)
 
     pdf_path = generate_pdf_from_svg(clean_name, req.event, req.tier, req.date, cert_log.cert_id, cert_log.cert_type)
-    if not pdf_path:
+    if not pdf_path or not os.path.exists(pdf_path):
         cert_log.status = "FAILED"
+        cert_log.error_message = "PDF generation failed."
         db.commit()
         raise HTTPException(status_code=500, detail="PDF generation failed.")
 
     if not req.send_email:
         cert_log.status = "GENERATED"
+        cert_log.error_message = None
         db.commit()
         return FileResponse(
             pdf_path,
             media_type="application/pdf",
-            filename=f"{re.sub(r'[^a-zA-Z0-9_-]', '_', req.name)}_certificate.pdf"
+            filename=f"{re.sub(r'[^a-zA-Z0-9_-]', '_', clean_name)}_Certificate.pdf"
         )
 
     success, error_msg = send_certificate_email(
@@ -394,18 +405,18 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
         cert_type=req.cert_type
     )
     if not success:
-        logger.warning(f"Email dispatch failed for {req.email}: {error_msg}. Returning generated PDF file.")
-        cert_log.status = "SENT"
+        cert_log.status = "FAILED"
+        cert_log.error_message = str(error_msg)
         db.commit()
-        return FileResponse(
-            pdf_path,
-            media_type="application/pdf",
-            filename=f"{re.sub(r'[^a-zA-Z0-9_-]', '_', clean_name)}_certificate.pdf"
+        raise HTTPException(
+            status_code=500,
+            detail=f"Certificate generated, but email dispatch failed: {error_msg}"
         )
 
     cert_log.status = "SENT"
+    cert_log.error_message = None
     db.commit()
-    return {"success": True, "message": "Certificate generated and sent"}
+    return {"success": True, "message": "Certificate generated and sent", "cert_id": cert_log.cert_id}
 
 
 @app.post("/api/jobs/bulk")
@@ -416,6 +427,7 @@ async def process_bulk(
 ):
     batch_id = str(uuid.uuid4())
 
+    logs = []
     for record in req.records:
         name = str(record.get("Name", ""))[:MAX_STR].strip()
         email = str(record.get("Email", ""))[:254].strip()
@@ -436,12 +448,16 @@ async def process_bulk(
             cert_type=rec_type,
             status="PENDING"
         )
-        db.add(cert_log)
+        logs.append(cert_log)
 
+    if not logs:
+        raise HTTPException(status_code=400, detail="No valid records provided for processing.")
+
+    db.add_all(logs)
     db.commit()
     background_tasks.add_task(process_batch, batch_id, req.send_email)
 
-    return {"success": True, "batch_id": batch_id, "total": len(req.records)}
+    return {"success": True, "batch_id": batch_id, "total": len(logs)}
 
 
 @app.get("/api/jobs/{batch_id}")
@@ -452,33 +468,97 @@ async def get_job_status(batch_id: str, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid batch ID format")
 
-    total = db.query(CertificateLog).filter(CertificateLog.batch_id == batch_id).count()
-    if total == 0:
+    from sqlalchemy import func
+    counts_raw = db.query(CertificateLog.status, func.count(CertificateLog.id))\
+        .filter(CertificateLog.batch_id == batch_id)\
+        .group_by(CertificateLog.status).all()
+
+    if not counts_raw:
         db.expire_all()
-        total = db.query(CertificateLog).filter(CertificateLog.batch_id == batch_id).count()
-        if total == 0:
+        counts_raw = db.query(CertificateLog.status, func.count(CertificateLog.id))\
+            .filter(CertificateLog.batch_id == batch_id)\
+            .group_by(CertificateLog.status).all()
+        if not counts_raw:
             raise HTTPException(status_code=404, detail="Batch not found")
 
-    sent = db.query(CertificateLog).filter(
-        CertificateLog.batch_id == batch_id, CertificateLog.status == "SENT"
-    ).count()
-    failed = db.query(CertificateLog).filter(
-        CertificateLog.batch_id == batch_id, CertificateLog.status == "FAILED"
-    ).count()
-    cancelled = db.query(CertificateLog).filter(
-        CertificateLog.batch_id == batch_id, CertificateLog.status == "CANCELLED"
-    ).count()
-    pending = total - sent - failed - cancelled
+    status_map = {status: count for status, count in counts_raw}
+    sent = status_map.get("SENT", 0)
+    generated = status_map.get("GENERATED", 0)
+    failed = status_map.get("FAILED", 0)
+    cancelled = status_map.get("CANCELLED", 0)
+    pending = status_map.get("PENDING", 0)
+    total = sum(status_map.values())
+    completed = (pending == 0) and (total > 0)
+
+    # Fetch all failed student details for instant heads-up
+    failed_students = []
+    recent_errors = []
+    if failed > 0:
+        failed_rows = db.query(
+            CertificateLog.name,
+            CertificateLog.email,
+            CertificateLog.tier,
+            CertificateLog.error_message
+        ).filter(
+            CertificateLog.batch_id == batch_id,
+            CertificateLog.status == "FAILED"
+        ).all()
+        
+        failed_students = [
+            {
+                "name": r[0],
+                "email": r[1],
+                "tier": r[2],
+                "reason": r[3] or "Dispatch failed (unspecified error)"
+            }
+            for r in failed_rows
+        ]
+        
+        # Unique list of error messages for quick summary
+        recent_errors = list({r[3] for r in failed_rows if r[3]})[:5]
 
     return {
         "batch_id": batch_id,
         "total": total,
         "sent": sent,
+        "generated": generated,
         "failed": failed,
         "cancelled": cancelled,
         "pending": pending,
-        "completed": pending == 0
+        "completed": completed,
+        "recent_errors": recent_errors,
+        "failed_students": failed_students
     }
+
+
+@app.get("/api/jobs/{batch_id}/failed/csv")
+async def export_failed_students_csv(batch_id: str, db: Session = Depends(get_db)):
+    """Exports a CSV list of all students whose certificates failed to generate or deliver."""
+    try:
+        uuid.UUID(batch_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid batch ID format")
+
+    records = db.query(CertificateLog).filter(
+        CertificateLog.batch_id == batch_id,
+        CertificateLog.status == "FAILED"
+    ).all()
+
+    import io, csv
+    from fastapi.responses import Response
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Name", "Email", "Tier", "Failure Reason"])
+    for r in records:
+        writer.writerow([r.name, r.email, r.tier, r.error_message or "Dispatch failed"])
+
+    output.seek(0)
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=failed_students_{batch_id[:8]}.csv"}
+    )
 
 @app.post("/api/jobs/{batch_id}/cancel")
 async def cancel_job(batch_id: str, req: PasswordRequest, request: Request, db: Session = Depends(get_db)):
@@ -504,9 +584,61 @@ async def cancel_job(batch_id: str, req: PasswordRequest, request: Request, db: 
     return {"success": True, "message": "Batch processing cancelled."}
 
 
+@app.post("/api/jobs/{batch_id}/retry")
+async def retry_failed_certificates(batch_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Retries all FAILED certificates in a batch without re-emailing successful ones."""
+    try:
+        uuid.UUID(batch_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid batch ID format")
+
+    failed_count = db.query(CertificateLog).filter(
+        CertificateLog.batch_id == batch_id,
+        CertificateLog.status == "FAILED"
+    ).update({"status": "PENDING", "error_message": None}, synchronize_session=False)
+
+    db.commit()
+
+    if failed_count == 0:
+        return {"success": False, "message": "No failed certificates to retry."}
+
+    background_tasks.add_task(process_batch, batch_id, True)
+    return {"success": True, "message": f"Retrying {failed_count} failed certificates.", "retrying": failed_count}
+
+
+@app.get("/api/certificates/{cert_id}/download")
+async def download_single_certificate(cert_id: str, db: Session = Depends(get_db)):
+    """Direct download for an individual certificate by ID."""
+    record = db.query(CertificateLog).filter(CertificateLog.cert_id == cert_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    safe_name = re.sub(r'[\\/*?"<>|]', "", record.name).replace(" ", "_")
+    filename = f"{safe_name}_{record.cert_id}.pdf"
+    pdf_path = os.path.join(config.OUTPUT_DIR, filename)
+
+    if not os.path.exists(pdf_path):
+        pdf_path = generate_pdf_from_svg(
+            name=record.name,
+            event_name=record.event,
+            role=record.tier,
+            cert_date=record.date,
+            cert_id=record.cert_id,
+            cert_type=record.cert_type
+        )
+
+    if not pdf_path or not os.path.exists(pdf_path):
+        raise HTTPException(status_code=500, detail="Unable to retrieve or regenerate PDF.")
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"{safe_name}_Certificate.pdf"
+    )
+
+
 @app.get("/api/jobs/{batch_id}/download")
 async def download_batch_zip(batch_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    # Validate UUID format
     try:
         uuid.UUID(batch_id)
     except ValueError:
@@ -520,13 +652,26 @@ async def download_batch_zip(batch_id: str, background_tasks: BackgroundTasks, d
     temp_zip_path = temp_zip.name
     temp_zip.close()
 
-    with zipfile.ZipFile(temp_zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+    # Use ZIP_STORED because PDFs are already internally compressed.
+    # This prevents CPU spikes and creates the ZIP in seconds even for 1000+ files!
+    with zipfile.ZipFile(temp_zip_path, "w", zipfile.ZIP_STORED) as zip_file:
         for record in records:
             safe_name = re.sub(r'[\\/*?"<>|]', "", record.name).replace(" ", "_")
             filename = f"{safe_name}_{record.cert_id}.pdf"
             pdf_path = os.path.join(config.OUTPUT_DIR, filename)
 
-            if os.path.exists(pdf_path):
+            # Regenerate on-the-fly if missing/purged
+            if not os.path.exists(pdf_path):
+                pdf_path = generate_pdf_from_svg(
+                    name=record.name,
+                    event_name=record.event,
+                    role=record.tier,
+                    cert_date=record.date,
+                    cert_id=record.cert_id,
+                    cert_type=record.cert_type
+                )
+
+            if pdf_path and os.path.exists(pdf_path):
                 zip_file.write(pdf_path, arcname=filename)
 
     background_tasks.add_task(os.remove, temp_zip_path)

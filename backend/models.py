@@ -18,5 +18,7 @@ class CertificateLog(Base):
     event = Column(String)
     tier = Column(String)
     date = Column(String)
-    status = Column(String, default="PENDING", index=True) # PENDING, SENT, FAILED, CANCELLED
+    status = Column(String, default="PENDING", index=True)  # PENDING, SENT, GENERATED, FAILED, CANCELLED
+    error_message = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

@@ -68,7 +68,7 @@ def _prune_old_records(db: Session, older_than_days: int, keep_minimum: int) -> 
     from models import CertificateLog
 
     cutoff_date = datetime.utcnow() - timedelta(days=older_than_days)
-    deletable_statuses = ("SENT", "FAILED", "CANCELLED")
+    deletable_statuses = ("SENT", "GENERATED", "FAILED", "CANCELLED")
 
     total = db.query(CertificateLog).count()
     if total <= keep_minimum:

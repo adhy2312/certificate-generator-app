@@ -27,10 +27,10 @@ export default function SingleGeneration() {
           body: JSON.stringify(payload),
         });
         if (data && data.success) {
-          setStatus({ type: 'success', message: `Certificate dispatched to ${payload.email}!` });
+          setStatus({ type: 'success', message: `✓ Certificate dispatched successfully to ${payload.name} (${payload.email})!` });
           setFormData({ name: '', email: '', event: '', tier: 'Participant', date: '', cert_type: 'Certificate of Participation', prize: '1st Prize', send_email: true });
         } else {
-          setStatus({ type: 'error', message: data?.detail || 'Failed to process request.' });
+          setStatus({ type: 'error', message: `⚠️ Heads-Up: Failed to deliver certificate to ${payload.name} (${payload.email}): ${data?.detail || 'Dispatch failed'}` });
         }
       } else {
         let response;

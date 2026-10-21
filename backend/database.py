@@ -40,3 +40,20 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        for col, col_type in [
+            ("cert_type", "VARCHAR DEFAULT 'Certificate of Participation'"),
+            ("error_message", "VARCHAR"),
+            ("updated_at", "TIMESTAMP")
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE certificate_logs ADD COLUMN {col} {col_type}"))
+            except Exception:
+                pass
+
+# Run database table & column migration check on load
+init_db()
