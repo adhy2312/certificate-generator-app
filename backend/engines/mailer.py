@@ -92,7 +92,16 @@ class SMTPConnectionManager:
                 err_code = e.smtp_code
                 err_msg = e.smtp_error.decode('utf-8', errors='ignore') if isinstance(e.smtp_error, bytes) else str(e.smtp_error)
                 logger.error(f"SMTP Error {err_code}: {err_msg}")
-                if "quota" in err_msg.lower() or "limit" in err_msg.lower() or err_code == 452:
+                if err_code == 421 and attempt < retry_count:
+                    logger.warning(f"SMTP 421 temporary limit. Backing off 3s before retry {attempt + 2}...")
+                    time.sleep(3.0)
+                    try:
+                        self.connect()
+                        continue
+                    except Exception:
+                        pass
+                lower_err = err_msg.lower()
+                if "quota" in lower_err or "limit" in lower_err or err_code == 452 or "daily" in lower_err:
                     return False, f"Daily Sending Limit / Quota Exceeded ({err_code}): {err_msg}"
                 return False, f"SMTP Error ({err_code}): {err_msg}"
 
@@ -139,20 +148,27 @@ def send_certificate_email(
     """
     Sends certificate PDF to recipient via Google Apps Script Proxy or direct SMTP.
     If smtp_manager is provided, reuses the active SMTP connection for speed & reliability.
+    Includes full sanitization against MIME header injection.
     """
     try:
         if cert_type == "CERT_Template":
             cert_type = "Certificate of Participation"
 
-        clean_name = name.strip().title()
-        safe_name_str = re.sub(r'[^a-zA-Z0-9_-]', '_', clean_name).replace(" ", "_")
+        # Sanitize text inputs & prevent CRLF header injection
+        clean_name = re.sub(r'[\r\n\t]+', ' ', name or '').strip().title()
+        clean_event = re.sub(r'[\r\n\t]+', ' ', event or 'Event').strip()
+        safe_name_str = re.sub(r'[^a-zA-Z0-9_\-]', '_', clean_name)[:35].strip('_')
+        if not safe_name_str:
+            safe_name_str = "Certificate"
         attachment_filename = f"{safe_name_str}_Certificate.pdf"
         
-        subject = f"Your {cert_type} - {event}"
+        subject = re.sub(r'[\r\n\t]+', ' ', f"Your {cert_type} - {clean_event}").strip()
+        if not subject:
+            subject = "Your Certificate"
 
         # Load and render template
         template = env.get_template('email_template.html')
-        html_body = template.render(name=clean_name, event=event, tier=tier, cert_id=cert_id, cert_type=cert_type)
+        html_body = template.render(name=clean_name, event=clean_event, tier=tier, cert_id=cert_id, cert_type=cert_type)
         
         # Read PDF
         if not os.path.exists(pdf_path):

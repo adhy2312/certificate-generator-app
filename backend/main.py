@@ -131,6 +131,20 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    # Recover orphaned PENDING records from abrupt server restarts or redeployments
+    try:
+        from database import SessionLocal
+        with SessionLocal() as db_session:
+            orphaned = db_session.query(CertificateLog).filter(CertificateLog.status == "PENDING").all()
+            if orphaned:
+                logger.warning(f"Found {len(orphaned)} orphaned PENDING certificates from server restart. Marking as FAILED with recovery alert.")
+                for r in orphaned:
+                    r.status = "FAILED"
+                    r.error_message = "Server restarted while batch was processing. Click 'Retry Failed' to resume."
+                db_session.commit()
+    except Exception as recovery_err:
+        logger.error(f"Error recovering orphaned records on startup: {recovery_err}")
+
     # Start auto-cleanup background tasks
     pdf_task = asyncio.create_task(cleanup_pdfs_loop())
     db_cleanup_task = asyncio.create_task(scheduled_db_cleanup_loop())
@@ -378,12 +392,19 @@ async def process_single(req: SingleProcessRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(cert_log)
 
-    pdf_path = generate_pdf_from_svg(clean_name, req.event, req.tier, req.date, cert_log.cert_id, cert_log.cert_type)
+    try:
+        pdf_path = generate_pdf_from_svg(clean_name, req.event, req.tier, req.date, cert_log.cert_id, cert_log.cert_type)
+    except Exception as gen_err:
+        cert_log.status = "FAILED"
+        cert_log.error_message = f"Generation failed: {gen_err}"[:250]
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {gen_err}")
+
     if not pdf_path or not os.path.exists(pdf_path):
         cert_log.status = "FAILED"
-        cert_log.error_message = "PDF generation failed."
+        cert_log.error_message = "PDF file missing after generation."
         db.commit()
-        raise HTTPException(status_code=500, detail="PDF generation failed.")
+        raise HTTPException(status_code=500, detail="PDF generation failed: output file missing.")
 
     if not req.send_email:
         cert_log.status = "GENERATED"
@@ -547,11 +568,22 @@ async def export_failed_students_csv(batch_id: str, db: Session = Depends(get_db
     import io, csv
     from fastapi.responses import Response
 
+    def _sanitize_csv_cell(val: any) -> str:
+        s = str(val or "").strip()
+        if s.startswith(('=', '+', '-', '@', '\t', '\r')):
+            return f"'{s}"
+        return s
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Name", "Email", "Tier", "Failure Reason"])
     for r in records:
-        writer.writerow([r.name, r.email, r.tier, r.error_message or "Dispatch failed"])
+        writer.writerow([
+            _sanitize_csv_cell(r.name),
+            _sanitize_csv_cell(r.email),
+            _sanitize_csv_cell(r.tier),
+            _sanitize_csv_cell(r.error_message or "Dispatch failed")
+        ])
 
     output.seek(0)
     return Response(
@@ -606,6 +638,14 @@ async def retry_failed_certificates(batch_id: str, background_tasks: BackgroundT
     return {"success": True, "message": f"Retrying {failed_count} failed certificates.", "retrying": failed_count}
 
 
+def get_cert_pdf_filename(name: str, cert_id: str) -> str:
+    clean_prefix = re.sub(r'[^a-zA-Z0-9_\-]', '_', (name or '').strip().title())[:35].strip('_')
+    if not clean_prefix:
+        clean_prefix = "cert"
+    short_id = (cert_id or "")[:8]
+    return f"{clean_prefix}_{short_id}.pdf"
+
+
 @app.get("/api/certificates/{cert_id}/download")
 async def download_single_certificate(cert_id: str, db: Session = Depends(get_db)):
     """Direct download for an individual certificate by ID."""
@@ -613,27 +653,30 @@ async def download_single_certificate(cert_id: str, db: Session = Depends(get_db
     if not record:
         raise HTTPException(status_code=404, detail="Certificate not found")
 
-    safe_name = re.sub(r'[\\/*?"<>|]', "", record.name).replace(" ", "_")
-    filename = f"{safe_name}_{record.cert_id}.pdf"
+    filename = get_cert_pdf_filename(record.name, record.cert_id)
     pdf_path = os.path.join(config.OUTPUT_DIR, filename)
 
     if not os.path.exists(pdf_path):
-        pdf_path = generate_pdf_from_svg(
-            name=record.name,
-            event_name=record.event,
-            role=record.tier,
-            cert_date=record.date,
-            cert_id=record.cert_id,
-            cert_type=record.cert_type
-        )
+        try:
+            pdf_path = generate_pdf_from_svg(
+                name=record.name,
+                event_name=record.event,
+                role=record.tier,
+                cert_date=record.date,
+                cert_id=record.cert_id,
+                cert_type=record.cert_type
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate certificate {record.cert_id}: {e}")
 
     if not pdf_path or not os.path.exists(pdf_path):
         raise HTTPException(status_code=500, detail="Unable to retrieve or regenerate PDF.")
 
+    display_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', (record.name or '').strip().title())[:35].strip('_') or "Certificate"
     return FileResponse(
         pdf_path,
         media_type="application/pdf",
-        filename=f"{safe_name}_Certificate.pdf"
+        filename=f"{display_name}_Certificate.pdf"
     )
 
 
@@ -656,20 +699,22 @@ async def download_batch_zip(batch_id: str, background_tasks: BackgroundTasks, d
     # This prevents CPU spikes and creates the ZIP in seconds even for 1000+ files!
     with zipfile.ZipFile(temp_zip_path, "w", zipfile.ZIP_STORED) as zip_file:
         for record in records:
-            safe_name = re.sub(r'[\\/*?"<>|]', "", record.name).replace(" ", "_")
-            filename = f"{safe_name}_{record.cert_id}.pdf"
+            filename = get_cert_pdf_filename(record.name, record.cert_id)
             pdf_path = os.path.join(config.OUTPUT_DIR, filename)
 
             # Regenerate on-the-fly if missing/purged
             if not os.path.exists(pdf_path):
-                pdf_path = generate_pdf_from_svg(
-                    name=record.name,
-                    event_name=record.event,
-                    role=record.tier,
-                    cert_date=record.date,
-                    cert_id=record.cert_id,
-                    cert_type=record.cert_type
-                )
+                try:
+                    pdf_path = generate_pdf_from_svg(
+                        name=record.name,
+                        event_name=record.event,
+                        role=record.tier,
+                        cert_date=record.date,
+                        cert_id=record.cert_id,
+                        cert_type=record.cert_type
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not generate certificate for {record.name}: {e}")
 
             if pdf_path and os.path.exists(pdf_path):
                 zip_file.write(pdf_path, arcname=filename)

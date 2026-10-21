@@ -32,8 +32,31 @@ def parse_google_sheet_url(url: str) -> str:
 
     return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&id={spreadsheet_id}&gid={gid}"
 
+def _safe_read_csv(raw_bytes: bytes) -> pd.DataFrame:
+    """Tries multiple encodings in succession to guarantee 0% decode errors for international student names."""
+    encodings = ['utf-8', 'utf-8-sig', 'cp1252', 'latin1', 'iso-8859-1']
+    for enc in encodings:
+        try:
+            return pd.read_csv(BytesIO(raw_bytes), encoding=enc)
+        except (UnicodeDecodeError, pd.errors.ParserError):
+            continue
+    # Resilient fallback with character replacement
+    text = raw_bytes.decode('utf-8', errors='replace')
+    import io
+    return pd.read_csv(io.StringIO(text))
+
+def _clean_cell(val) -> str:
+    """Strips control chars and neutralizes formula injection triggers (=, +, -, @)."""
+    if val is None or pd.isna(val):
+        return ""
+    s = str(val).strip()
+    s = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', s)
+    while s and s[0] in ('=', '+', '-', '@'):
+        s = s[1:].strip()
+    return s
+
 def process_source(file_data=None, url=None) -> list:
-    """Parses incoming spreadsheet data using Pandas with high resilience."""
+    """Parses incoming spreadsheet data using Pandas with high resilience and security auditing."""
     df = pd.DataFrame()
     try:
         if url:
@@ -45,13 +68,23 @@ def process_source(file_data=None, url=None) -> list:
             
             try:
                 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ISTE-CertHub/2.0"}
-                resp = requests.get(export_url, headers=headers, timeout=20)
+                resp = requests.get(export_url, headers=headers, timeout=20, allow_redirects=True)
+                
+                # SSRF Protection: audit redirect history to prevent SSRF against internal/cloud IPs
+                for r in resp.history:
+                    r_host = urlparse(r.url).netloc.lower()
+                    if not (r_host == "docs.google.com" or r_host.endswith(".google.com") or r_host.endswith(".googleusercontent.com")):
+                        raise ValueError(f"Security Alert: Disallowed redirect to {r_host}")
+                final_host = urlparse(resp.url).netloc.lower()
+                if not (final_host == "docs.google.com" or final_host.endswith(".google.com") or final_host.endswith(".googleusercontent.com")):
+                    raise ValueError(f"Security Alert: Disallowed redirect to non-Google host {final_host}")
+
                 if resp.status_code == 404:
                     raise ValueError("Google Sheet not found. Please verify the link.")
                 if resp.status_code == 400 or "ServiceLogin" in resp.text:
                     raise ValueError("Google Sheet is private. Please ensure link sharing is set to 'Anyone with the link can view'.")
                 resp.raise_for_status()
-                df = pd.read_csv(BytesIO(resp.content))
+                df = _safe_read_csv(resp.content)
             except requests.Timeout:
                 raise ValueError("Google Sheets server timed out. Please retry or download as CSV and upload directly.")
             except Exception as read_err:
@@ -60,9 +93,12 @@ def process_source(file_data=None, url=None) -> list:
                 raise read_err
         elif file_data:
             try:
-                df = pd.read_csv(BytesIO(file_data))
+                df = _safe_read_csv(file_data)
             except Exception:
-                df = pd.read_excel(BytesIO(file_data), engine='openpyxl')
+                try:
+                    df = pd.read_excel(BytesIO(file_data), engine='openpyxl')
+                except Exception:
+                    df = pd.read_excel(BytesIO(file_data))
         else:
             raise ValueError("No data source provided.")
 
@@ -105,12 +141,14 @@ def process_source(file_data=None, url=None) -> list:
         if 'Type' not in df.columns:
             df['Type'] = ''
             
-        # 1. Name Formatting
-        df['Name'] = df['Name'].astype(str).str.strip().str.title()
+        # 1. Name Formatting & Sanitization
+        df['Name'] = df['Name'].apply(_clean_cell).str.title()
+        df['Tier'] = df['Tier'].apply(_clean_cell)
+        df['Type'] = df['Type'].apply(_clean_cell)
         
         # 2. Email Validation & Cleanup
         email_pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-        df['Email'] = df['Email'].astype(str).str.strip()
+        df['Email'] = df['Email'].apply(_clean_cell).str.lower()
         df = df[df['Email'].str.match(email_pattern, na=False)]
         
         if df.empty:
