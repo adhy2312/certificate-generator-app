@@ -516,6 +516,7 @@ async def get_job_status(batch_id: str, db: Session = Depends(get_db)):
     recent_errors = []
     if failed > 0:
         failed_rows = db.query(
+            CertificateLog.cert_id,
             CertificateLog.name,
             CertificateLog.email,
             CertificateLog.tier,
@@ -527,10 +528,12 @@ async def get_job_status(batch_id: str, db: Session = Depends(get_db)):
         
         failed_students = [
             {
-                "name": r[0],
-                "email": r[1],
-                "tier": r[2],
-                "reason": r[3] or "Dispatch failed (unspecified error)"
+                "cert_id": r[0],
+                "name": r[1],
+                "email": r[2],
+                "tier": r[3],
+                "reason": r[4] or "Dispatch failed (unspecified error)",
+                "download_url": f"/api/certificates/{r[0]}/download"
             }
             for r in failed_rows
         ]
@@ -644,6 +647,38 @@ def get_cert_pdf_filename(name: str, cert_id: str) -> str:
         clean_prefix = "cert"
     short_id = (cert_id or "")[:8]
     return f"{clean_prefix}_{short_id}.pdf"
+
+
+@app.get("/api/certificates/search")
+async def search_certificates(query: str, db: Session = Depends(get_db)):
+    """Public search endpoint allowing students to find and download their certificates by email, name, or Certificate ID."""
+    clean_q = query.strip()
+    if not clean_q or len(clean_q) < 3:
+        raise HTTPException(status_code=400, detail="Search query must be at least 3 characters")
+    
+    from sqlalchemy import or_, func
+    # Match exact email, exact cert_id, or fuzzy student name
+    records = db.query(CertificateLog).filter(
+        or_(
+            func.lower(CertificateLog.email) == clean_q.lower(),
+            CertificateLog.cert_id == clean_q,
+            func.lower(CertificateLog.name).like(f"%{clean_q.lower()}%")
+        )
+    ).order_by(CertificateLog.id.desc()).limit(30).all()
+
+    return [
+        {
+            "cert_id": r.cert_id,
+            "name": r.name,
+            "email": r.email,
+            "event": r.event,
+            "tier": r.tier,
+            "date": r.date,
+            "cert_type": r.cert_type or "Certificate of Participation",
+            "download_url": f"/api/certificates/{r.cert_id}/download"
+        }
+        for r in records
+    ]
 
 
 @app.get("/api/certificates/{cert_id}/download")

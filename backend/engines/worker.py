@@ -166,6 +166,10 @@ def process_batch(batch_id: str, send_email: bool = True):
                                     db.commit()
                                     break
 
+                        # Polite pacing between email dispatches to prevent Google burst limits
+                        if send_email:
+                            time.sleep(1.2)
+
                         # Free memory every 25 records to prevent leaks on low-RAM containers
                         if idx % 25 == 0:
                             gc.collect()

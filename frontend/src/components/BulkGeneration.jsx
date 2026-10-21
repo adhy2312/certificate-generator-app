@@ -489,6 +489,16 @@ export default function BulkGeneration() {
                           {copiedNotice ? '✓ Copied!' : 'Copy Emails'}
                         </button>
                         <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(window.location.origin);
+                            alert("Copied student portal link! Share this link with participants so they can download their certificate by entering their email.");
+                          }}
+                          className="clay-btn bg-white text-indigo-700 border border-indigo-200 px-3 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-indigo-50"
+                          title="Copy Student Download Portal link to share with students"
+                        >
+                          🔗 Copy Portal Link
+                        </button>
+                        <button
                           onClick={() => setShowFailedList(!showFailedList)}
                           className="text-xs font-bold text-red-600 hover:text-red-800 underline ml-1"
                         >
@@ -506,6 +516,7 @@ export default function BulkGeneration() {
                               <th className="p-2.5 font-bold text-red-900 uppercase">Student Name</th>
                               <th className="p-2.5 font-bold text-red-900 uppercase">Email</th>
                               <th className="p-2.5 font-bold text-red-900 uppercase">Issue Reason</th>
+                              <th className="p-2.5 font-bold text-red-900 uppercase text-right">PDF</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -517,6 +528,19 @@ export default function BulkGeneration() {
                                   <span className="inline-block px-2 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-semibold">
                                     {st.reason}
                                   </span>
+                                </td>
+                                <td className="p-2.5 text-right whitespace-nowrap">
+                                  {st.download_url && (
+                                    <a
+                                      href={`${API_BASE}${st.download_url}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download
+                                      className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100"
+                                    >
+                                      Download PDF ↓
+                                    </a>
+                                  )}
                                 </td>
                               </tr>
                             ))}

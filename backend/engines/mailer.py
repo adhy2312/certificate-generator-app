@@ -223,15 +223,28 @@ def send_certificate_email(
                                 last_gas_err = err_detail
                                 logger.warning(f"GAS Proxy Error from {gas_url[:35]}...: {err_detail}")
 
-                                # Detect Google Apps Script daily quota limit
+                                # Detect Google Apps Script burst rate limit or daily quota limit
                                 if any(k in str(err_detail).lower() for k in [
                                     "too many times for one day",
                                     "service invoked too many times",
                                     "quota",
                                     "limit exceeded"
                                 ]):
+                                    # Check if this was a transient burst limit by backing off 3s and retrying once
+                                    logger.warning(f"GAS burst/quota detected for {gas_url[:35]}... Waiting 3.0s to auto-retry before cycling...")
+                                    time.sleep(3.0)
+                                    try:
+                                        retry_resp = requests.post(gas_url, json=payload, timeout=30)
+                                        retry_json = retry_resp.json()
+                                        if retry_resp.status_code == 200 and retry_json.get('success'):
+                                            logger.info(f"Email dispatched successfully on burst retry to {to_email} via GAS Proxy")
+                                            return True, "Success"
+                                    except Exception:
+                                        pass
+
+                                    # If retry also failed, this endpoint is genuinely exhausted for the day
                                     _EXHAUSTED_GAS_URLS.add(gas_url)
-                                    logger.warning(f"GAS endpoint {gas_url[:35]}... reached daily quota. Failing over...")
+                                    logger.warning(f"GAS endpoint {gas_url[:35]}... exhausted daily quota. Failing over...")
                                     continue
                                 else:
                                     # Non-quota error, still try fallback
